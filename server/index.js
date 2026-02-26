@@ -26,10 +26,23 @@ const db = new pg.Client({
 });
 db.connect();
 
-app.get("/", (req, res) => {
-  console.log("Received request for /");
+app.get("/deck/:id", async (req, res, next) => {
+  const deckId = req.params.id;
+  try {
+    const q = `
+      SELECT f.id, f.prompt, f.answer, df.position
+      FROM decks d
+      JOIN deck_facts df ON d.id = df.deck_id
+      JOIN facts f ON df.fact_id = f.id
+      WHERE d.id = $1
+      ORDER BY df.position;
+    `;
+    const result = await db.query(q, [req.params.id]);
+    res.json({ facts: result.rows });
+  } catch (err) {
+    next(err);
+  }
 });
-
 app.listen(port, () => {
   console.log(`API running on http://localhost:${port}`);
 });
