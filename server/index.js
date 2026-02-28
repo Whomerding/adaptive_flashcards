@@ -2,7 +2,9 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
 import { pool } from "./db.js";
+import crypto from "crypto";
 
 
 
@@ -10,25 +12,61 @@ const app = express();
 const port = 5050;
 const saltRounds = 10;
 
-app.use(cors({ origin: "http://localhost:3000" })); // CRA
 app.use(express.json());
+app.use(cookieParser());
+
+app.use(cors({
+  origin: "http://localhost:3000",  
+  credentials: true,
+}));
+
+function cookieOptions(isProd) {
+  return {
+    httpOnly: true,
+    secure: isProd,        
+    sameSite: isProd ? "none" : "lax", 
+    path: "/",
+  };
+}
+  
 
 function requireAuth(req, res, next) {
-  const auth = req.headers.authorization || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token) return res.status(401).json({ error: "Missing token" });
+  const token = req.cookies?.access_token;
+  if (!token) return res.status(401).json({ error: "Not authenticated" });
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload; // { parentId: ... }
-    return next();
-  } catch {
-    return res.status(401).json({ error: "Invalid token" });
+    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    req.user = payload; // { parentId }
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid/expired token" });
   }
 }
 
+function requireCsrf(req, res, next) {
+  const csrfCookie = req.cookies?.csrf_token;
+  const csrfHeader = req.headers["x-csrf-token"];
+  if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+    return res.status(403).json({ error: "CSRF check failed" });
+  }
+  next();
+}
 
-pool.connect();
+
+
+app.get("/auth/csrf", (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
+  const csrf = crypto.randomBytes(32).toString("hex");
+
+  res.cookie("csrf_token", csrf, {
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
+  });
+
+  res.json({ csrfToken: csrf });
+});
+
 
 app.get("/deck/:id", async (req, res, next) => {
   const deckId = req.params.id;
@@ -48,25 +86,38 @@ app.get("/deck/:id", async (req, res, next) => {
   }
 });
 
-app.get("/me", requireAuth, async (req, res) => {
-  const { parentId } = req.user;
-  const parent = await pool.query("SELECT id, email FROM parents WHERE id = $1", [parentId]);
-  res.json({ parent: parent.rows[0] });
+// Who am I (protected)
+app.get("/auth/me", requireAuth, async (req, res, next) => {
+  try {
+    const { parentId } = req.user;
+    const r = await pool.query("SELECT id, email FROM parents WHERE id = $1", [
+      parentId,
+    ]);
+    res.json({ parent: r.rows[0] });
+  } catch (err) {
+    next(err);
+  }
 });
 
+// Register (create parent, then set cookies like login)
+app.post("/auth/register", async (req, res, next) => {
+  const isProd = process.env.NODE_ENV === "production";
 
-
-// Authentication
-app.post("/auth/register", async (req, res) => {
   try {
     const email = (req.body.email || "").trim().toLowerCase();
     const password = req.body.password || "";
 
     if (!email) return res.status(400).json({ error: "Email is required" });
-    if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+    if (password.length < 8)
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 8 characters" });
 
-    const existing = await pool.query("SELECT id FROM parents WHERE email = $1", [email]);
-    if (existing.rows.length) return res.status(409).json({ error: "Account already exists" });
+    const existing = await pool.query("SELECT id FROM parents WHERE email=$1", [
+      email,
+    ]);
+    if (existing.rows.length)
+      return res.status(409).json({ error: "Account already exists" });
 
     const password_hash = await bcrypt.hash(password, saltRounds);
 
@@ -77,28 +128,47 @@ app.post("/auth/register", async (req, res) => {
 
     const parent = created.rows[0];
 
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       { parentId: parent.id },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: process.env.ACCESS_TOKEN_TTL || "15m" }
     );
 
-    return res.status(201).json({ token, parent });
+    const refreshToken = jwt.sign(
+      { parentId: parent.id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.REFRESH_TOKEN_TTL || "30d" }
+    );
+
+    res.cookie("access_token", accessToken, {
+      ...cookieOptions(isProd),
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie("refresh_token", refreshToken, {
+      ...cookieOptions(isProd),
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(201).json({ parent });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Server error" });
+    next(err);
   }
 });
 
-app.post("/auth/login", async (req, res) => {
+// Login (set cookies)
+app.post("/auth/login", async (req, res, next) => {
+  const isProd = process.env.NODE_ENV === "production";
+
   try {
     const email = (req.body.email || "").trim().toLowerCase();
     const password = req.body.password || "";
 
-    if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+    if (!email || !password)
+      return res.status(400).json({ error: "Email and password required" });
 
     const result = await pool.query(
-      "SELECT id, email, password_hash FROM parents WHERE email = $1",
+      "SELECT id, email, password_hash FROM parents WHERE email=$1",
       [email]
     );
 
@@ -108,17 +178,74 @@ app.post("/auth/login", async (req, res) => {
     const ok = await bcrypt.compare(password, parent.password_hash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       { parentId: parent.id },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: process.env.ACCESS_TOKEN_TTL || "15m" }
     );
 
-    return res.json({ token, parent: { id: parent.id, email: parent.email } });
+    const refreshToken = jwt.sign(
+      { parentId: parent.id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.REFRESH_TOKEN_TTL || "30d" }
+    );
+
+    res.cookie("access_token", accessToken, {
+      ...cookieOptions(isProd),
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie("refresh_token", refreshToken, {
+      ...cookieOptions(isProd),
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    res.json({ parent: { id: parent.id, email: parent.email } });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Server error" });
+    next(err);
   }
+});
+
+app.post("/auth/logout", (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
+
+  res.clearCookie("access_token", cookieOptions(isProd));
+  res.clearCookie("refresh_token", cookieOptions(isProd));
+  res.clearCookie("csrf_token", { path: "/" });
+
+  res.json({ ok: true });
+});
+
+app.post("/auth/refresh", (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
+  const refresh = req.cookies?.refresh_token;
+
+  if (!refresh) return res.status(401).json({ error: "Missing refresh token" });
+
+  try {
+    const payload = jwt.verify(refresh, process.env.JWT_REFRESH_SECRET);
+
+    const newAccess = jwt.sign(
+      { parentId: payload.parentId },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: process.env.ACCESS_TOKEN_TTL || "15m" }
+    );
+
+    res.cookie("access_token", newAccess, {
+      ...cookieOptions(isProd),
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.json({ ok: true });
+  } catch {
+    return res.status(401).json({ error: "Invalid refresh token" });
+  }
+});
+
+// Basic error handler so next(err) returns JSON
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: "Server error" });
 });
 
 
