@@ -1,13 +1,11 @@
-import dotenv from "dotenv";
 import express from "express";
-import pg from "pg";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { pool } from "./db.js";
 
 
 
-dotenv.config();
 const app = express();
 const port = 5050;
 const saltRounds = 10;
@@ -29,14 +27,8 @@ function requireAuth(req, res, next) {
   }
 }
 
-const db = new pg.Client({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: 5432,
-});
-db.connect();
+
+pool.connect();
 
 app.get("/deck/:id", async (req, res, next) => {
   const deckId = req.params.id;
@@ -49,7 +41,7 @@ app.get("/deck/:id", async (req, res, next) => {
       WHERE d.id = $1
       ORDER BY df.position;
     `;
-    const result = await db.query(q, [req.params.id]);
+    const result = await pool.query(q, [req.params.id]);
     res.json({ facts: result.rows });
   } catch (err) {
     next(err);
@@ -58,7 +50,7 @@ app.get("/deck/:id", async (req, res, next) => {
 
 app.get("/me", requireAuth, async (req, res) => {
   const { parentId } = req.user;
-  const parent = await db.query("SELECT id, email FROM parents WHERE id = $1", [parentId]);
+  const parent = await pool.query("SELECT id, email FROM parents WHERE id = $1", [parentId]);
   res.json({ parent: parent.rows[0] });
 });
 
@@ -73,12 +65,12 @@ app.post("/auth/register", async (req, res) => {
     if (!email) return res.status(400).json({ error: "Email is required" });
     if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
-    const existing = await db.query("SELECT id FROM parents WHERE email = $1", [email]);
+    const existing = await pool.query("SELECT id FROM parents WHERE email = $1", [email]);
     if (existing.rows.length) return res.status(409).json({ error: "Account already exists" });
 
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    const created = await db.query(
+    const created = await pool.query(
       "INSERT INTO parents (email, password_hash) VALUES ($1, $2) RETURNING id, email",
       [email, password_hash]
     );
@@ -105,7 +97,7 @@ app.post("/auth/login", async (req, res) => {
 
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
-    const result = await db.query(
+    const result = await pool.query(
       "SELECT id, email, password_hash FROM parents WHERE email = $1",
       [email]
     );
