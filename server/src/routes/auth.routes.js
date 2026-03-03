@@ -12,9 +12,10 @@ import { requireCsrf } from "../middleware/csrf.js";
 
 const router = Router();
 
-router.post("/register",  register);
-router.post("/login", login);
-router.post("/logout", logout);
+router.post("/register", requireCsrf, register);
+router.post("/login", requireCsrf, login);
+router.post("/logout", requireCsrf, logout);
+router.post("/refresh", requireCsrf, refresh);
 router.get("/csrf", getCsrf);
 
 // Example: an auth-only endpoint to verify cookie/jwt
