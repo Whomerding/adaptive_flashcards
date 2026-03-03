@@ -18,6 +18,7 @@ export function getCsrf(req, res) {
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
     path: "/",
+      maxAge: 2 * 60 * 60 * 1000, // 2 hours
   });
 
   res.json({ csrfToken: csrf });
