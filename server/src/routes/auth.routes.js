@@ -4,7 +4,8 @@ import {
   login,
   logout,
   me,
-  getCsrf
+  getCsrf,
+  refresh,
 } from "../controllers/auth.controllers.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireCsrf } from "../middleware/csrf.js";
