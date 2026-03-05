@@ -27,8 +27,8 @@ export async function addChild(req, res, next) {
        RETURNING id, parent_id, name, created_at`,
       [parentId, name]
     );
-
-    res.status(201).json({ child: r.rows[0] });
+const newChild = r.rows[0];
+    res.status(201).json({ child: newChild });
   } catch (err) {
     next(err);
   }

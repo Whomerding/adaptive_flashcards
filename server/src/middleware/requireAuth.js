@@ -1,8 +1,7 @@
 import jwt from "jsonwebtoken";
 
 export function requireAuth(req, res, next) {
-  console.log("cookies:", req.cookies);
-console.log("auth header:", req.headers.authorization);
+
   try {
     const token = req.cookies?.access_token; // or whatever you named it
     if (!token) return res.status(401).json({ error: "Not authenticated" });
