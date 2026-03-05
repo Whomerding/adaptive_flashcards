@@ -6,7 +6,7 @@ const [childName, setChildName] = React.useState("");
 
 const handleSubmit = (e) => {
     e.preventDefault();
-    props.handleSubmit(childName);
+    props.handleAddChildren(childName);
     setChildName("");
   };
 

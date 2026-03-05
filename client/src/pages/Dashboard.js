@@ -8,8 +8,8 @@ export default function Dashboard() {
   const [error, setError] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [children, setChildren] = React.useState([]);
-  const [name, setName] = React.useState("");
-
+  const [deckId, setDeckId] = React.useState(null);
+  const [deck, setDeck] = React.useState(null);
   
     async function fetchChildren() {
         try {
@@ -24,7 +24,7 @@ export default function Dashboard() {
         fetchChildren();
     }, []); 
 
-  async function handleSubmit(e) {
+  async function handleAddChildren(e) {
     setError(null);
     setLoading(true);
    
@@ -38,7 +38,6 @@ export default function Dashboard() {
     const res = await api.post("/api/children", { name: trimmedName });
          const newChild = res.data.child ?? res.data; 
     setChildren((prev) => [...prev, newChild]);
-    setName("");
     } catch (err) {
       console.error(err);
       setError("Failed to add child");
@@ -46,16 +45,31 @@ export default function Dashboard() {
       setLoading(false);
     }
   }
-  
+
+  async function chooseDeck(deckId, childId) {
+    console.log("Deck ID:", deckId, "Child ID:", childId);
+    setDeckId(deckId);
+    const res = await api.get (`/api/children/${childId}/decks/${deckId}/`);
+    const deck = res.data;
+    console.log("Deck data:", deck);
+    if (deck.deck === null) {
+      console.log("Deck is null, cannot start game");
+
+    } else {
+     setDeck(deck.facts);
+    }
+  }
+ 
+
   return (
     <div>
       <h1>Dashboard</h1>
       <ul>
         {children.map((child) => (
-          <Child key={child.id} name={child.name} />
+          <Child key={child.id} id ={child.id} name={child.name} chooseDeck={chooseDeck} />
         ))}
       </ul>
-      <AddChild handleSubmit={handleSubmit} error={error} />
+      <AddChild handleAddChildren={handleAddChildren} error={error} />
     </div>
   );
 }
