@@ -1,0 +1,12 @@
+import React from "react";
+import { Navigate, Outlet } from "react-router-dom";
+import useAuth from "./useAuth";
+
+export default function RequireGuest() {
+  const { isAuthed, isBootstrapping } = useAuth();
+
+  if (isBootstrapping) return <div>Loading...</div>;
+  if (isAuthed) return <Navigate to="/" replace />;
+
+  return <Outlet />;
+}

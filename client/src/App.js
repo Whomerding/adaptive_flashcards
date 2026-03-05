@@ -1,12 +1,16 @@
-import logo from './logo.svg';
-import './App.css';
+import React from "react";
+import { BrowserRouter } from "react-router-dom";
+import AuthProvider from "./auth/AuthProvider";
+import AppRoutes from "./routes/AppRoutes";
+import Navbar from "./components/Navbar";
 
-function App() {
+export default function App() {
   return (
-    <div className="App">
-     
-    </div>
+    <BrowserRouter>    
+      <AuthProvider>     
+         <Navbar />    
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
-
-export default App;
