@@ -8,6 +8,7 @@ import {
   getChildFacts,
   getChildDeckById,
   ensureChildDeck,
+  deleteChild,
 } from "../controllers/flashcards.controllers.js";
 
 const router = Router();
@@ -16,6 +17,7 @@ router.post("/children", requireAuth, requireCsrf, addChild);
 router.get("/children", requireAuth, getChildren);
 
 router.get("/children/:childId/facts", requireAuth, getChildFacts);
+router.delete("/children/:childId", requireAuth, requireCsrf, deleteChild);
 
 router.get("/children/:childId/decks/:deckId", requireAuth, getChildDeckById); 
 router.post("/children/:childId/decks/:deckId/ensure", requireAuth, ensureChildDeck);

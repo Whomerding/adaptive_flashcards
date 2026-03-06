@@ -52,6 +52,41 @@ export async function getChildren(req, res, next) {
   }
 }
 
+export async function deleteChild(req, res, next) {
+  try {
+    const parentId = req.user.parentId;
+    const childId = Number(req.params.childId);
+
+    if (!Number.isInteger(childId) || childId <= 0) {
+      return res.status(400).json({ error: "Invalid childId" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      await assertChildOwnership(client, childId, parentId);
+
+      await client.query(
+        `DELETE FROM children
+         WHERE id = $1`,
+        [childId]
+      );
+
+      await client.query("COMMIT");
+
+      return res.json({ success: true, childId });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+}
 /**
  * Returns facts + progress for a child.
  * Uses child_fact_progress as the "join point", so you only see facts you've initialized progress for.

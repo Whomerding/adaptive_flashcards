@@ -2,14 +2,16 @@ import React from "react";
 import Child from "../components/Child";
 import AddChild from "../components/AddChild";
 import api from "../api/axiosConfig";
-import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [error, setError] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [children, setChildren] = React.useState([]);
   const [deckId, setDeckId] = React.useState(null);
   const [deck, setDeck] = React.useState(null);
+  const [isDeckLoading, setDeckLoading] = React.useState(false);
   
     async function fetchChildren() {
         try {
@@ -46,30 +48,44 @@ export default function Dashboard() {
     }
   }
 
-  async function chooseDeck(deckId, childId) {
-    console.log("Deck ID:", deckId, "Child ID:", childId);
-    setDeckId(deckId);
-    const res = await api.get (`/api/children/${childId}/decks/${deckId}/`);
-    const deck = res.data;
-    console.log("Deck data:", deck);
-    if (deck.deck === null) {
-      console.log("Deck is null, cannot start game");
 
-    } else {
-     setDeck(deck.facts);
+async function chooseDeck(deckId, childId) {
+  try {
+  const numericDeckId = Number(deckId);
+  setError(null);
+  setDeckLoading(true);
+  navigate(`/children/${childId}/decks/${numericDeckId}`);
+  } catch (err) {
+    console.error("Failed to choose deck:", err);
+    setError("Failed to load deck");
+  } finally {
+    setDeckLoading(false);
+  }
+}
+
+ async function deleteChild(childId) {
+    try {
+      await api.delete(`/api/children/${childId}`);
+      setChildren((prev) => prev.filter((child) => child.id !== childId));
+    } catch (err) {
+      console.error("Failed to delete child:", err);
+      setError("Failed to delete child");
     }
   }
- 
+
 
   return (
+    loading ? (
+      <div>Loading...</div>
+    ) : (
     <div>
       <h1>Dashboard</h1>
       <ul>
         {children.map((child) => (
-          <Child key={child.id} id ={child.id} name={child.name} chooseDeck={chooseDeck} />
+          <Child key={child.id} id ={child.id} loading = {loading} child={child} chooseDeck={chooseDeck} deleteChild={deleteChild} />
         ))}
       </ul>
       <AddChild handleAddChildren={handleAddChildren} error={error} />
-    </div>
+    </div>)
   );
 }

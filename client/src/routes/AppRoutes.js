@@ -7,6 +7,7 @@ import RequireGuest from "../auth/RequireGuest";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 import DashboardPage from "../pages/Dashboard";
+import ChildDeckPage from "../pages/ChildDeckPage";
 
 export default function AppRoutes() {
   return (
@@ -18,6 +19,7 @@ export default function AppRoutes() {
 
       <Route element={<RequireAuth />}>
         <Route path="/" element={<DashboardPage />} />
+      <Route path="/children/:childId/decks/:deckId" element={<ChildDeckPage />} />
       </Route>
 
       <Route path="*" element={<div>Not Found</div>} />
