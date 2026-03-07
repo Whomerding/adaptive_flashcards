@@ -308,7 +308,7 @@ export async function batchUpdateChildFactProgress(req, res, next) {
   const parentId = req.user.parentId;
   const childId = Number(req.params.childId);
   const deckId = Number(req.params.deckId);
-  const updates = req.body?.updates;
+  const results = req.body?.results;
 
   if (!Number.isInteger(childId) || childId <= 0) {
     return res.status(400).json({ error: "Invalid childId" });
@@ -318,8 +318,8 @@ export async function batchUpdateChildFactProgress(req, res, next) {
     return res.status(400).json({ error: "Invalid deckId" });
   }
 
-  if (!Array.isArray(updates) || updates.length === 0) {
-    return res.status(400).json({ error: "Updates array is required" });
+  if (!Array.isArray(results) || results.length === 0) {
+    return res.status(400).json({ error: "Results array is required" });
   }
 
   try {
@@ -330,49 +330,93 @@ export async function batchUpdateChildFactProgress(req, res, next) {
 
       await assertChildOwnership(client, childId, parentId);
 
-      for (const update of updates) {
-        const factId = Number(update.factId);
-        const wasCorrect = Boolean(update.wasCorrect);
+      const factIds = results.map((r) => Number(r.factId));
 
-        if (!Number.isInteger(factId) || factId <= 0) {
-          throw new Error(`Invalid factId: ${update.factId}`);
-        }
+      if (factIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+        return res.status(400).json({ error: "One or more factIds are invalid" });
+      }
 
-        // Make sure this fact actually belongs to this deck
-        const factInDeck = await client.query(
-          `SELECT 1
-           FROM deck_facts
-           WHERE deck_id = $1
-             AND fact_id = $2
-           LIMIT 1`,
-          [deckId, factId]
-        );
+      // Validate all facts belong to this deck in one query
+      const factsInDeckResult = await client.query(
+        `SELECT fact_id
+         FROM deck_facts
+         WHERE deck_id = $1
+           AND fact_id = ANY($2::int[])`,
+        [deckId, factIds]
+      );
 
-        if (factInDeck.rowCount === 0) {
-          throw new Error(`Fact ${factId} does not belong to deck ${deckId}`);
+      const validFactIds = new Set(factsInDeckResult.rows.map((row) => row.fact_id));
+      const invalidFactIds = factIds.filter((id) => !validFactIds.has(id));
+
+      if (invalidFactIds.length > 0) {
+        return res.status(400).json({
+          error: `These facts do not belong to deck ${deckId}`,
+          invalidFactIds,
+        });
+      }
+
+      // Ensure progress rows exist for all facts in the batch
+      await client.query(
+        `INSERT INTO child_fact_progress (
+           child_id,
+           fact_id,
+           status,
+           is_active,
+           times_seen,
+           times_correct,
+           streak_correct,
+           last_seen_at,
+           next_due_at
+         )
+         SELECT
+           $1,
+           unnest($2::int[]),
+           'new',
+           true,
+           0,
+           0,
+           0,
+           NULL,
+           NULL
+         ON CONFLICT (child_id, fact_id) DO NOTHING`,
+        [childId, factIds]
+      );
+
+      for (const result of results) {
+        const factId = Number(result.factId);
+        const correct = Boolean(result.correct);
+        const timedOut = Boolean(result.timedOut);
+        const mastered = Boolean(result.mastered);
+        const seenAt = result.seenAt ? new Date(result.seenAt) : new Date();
+
+        if (Number.isNaN(seenAt.getTime())) {
+          throw new Error(`Invalid seenAt for factId ${factId}`);
         }
 
         await client.query(
           `UPDATE child_fact_progress
            SET
-             times_seen = times_seen + 1,
-             times_correct = times_correct + CASE WHEN $3 THEN 1 ELSE 0 END,
+             times_seen = COALESCE(times_seen, 0) + 1,
+             times_correct = COALESCE(times_correct, 0) + CASE WHEN $3 THEN 1 ELSE 0 END,
              streak_correct = CASE
-               WHEN $3 THEN streak_correct + 1
+               WHEN $4 THEN COALESCE(streak_correct, 0)
+               WHEN $3 THEN COALESCE(streak_correct, 0) + 1
                ELSE 0
              END,
+             last_seen_at = $5,
              status = CASE
-               WHEN $3 AND streak_correct + 1 >= 3 THEN 'mastered'
+               WHEN $6 THEN 'mastered'
                WHEN $3 THEN 'learning'
+               WHEN $4 THEN 'learning'
                ELSE 'new'
              END,
              is_active = CASE
-               WHEN $3 AND streak_correct + 1 >= 3 THEN false
+               WHEN $6 THEN false
                ELSE true
              END
            WHERE child_id = $1
              AND fact_id = $2`,
-          [childId, factId, wasCorrect]
+          [childId, factId, correct, timedOut, seenAt.toISOString(), mastered]
         );
       }
 
@@ -380,7 +424,7 @@ export async function batchUpdateChildFactProgress(req, res, next) {
 
       return res.json({
         success: true,
-        processed: updates.length,
+        processed: results.length,
       });
     } catch (err) {
       await client.query("ROLLBACK");

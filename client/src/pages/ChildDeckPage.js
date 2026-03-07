@@ -63,11 +63,13 @@ console.log("session state:", session, isDeckLoading, error);
 return (
   <div>
     <h1>Child Deck Page</h1>
-    <StudySession
-      session={session}
-      isLoading={isDeckLoading}
-      error={error}
-    />
+  <StudySession
+  session={session}
+  childId={childId}
+  deckId={deckId}
+  isLoading={isDeckLoading}
+  error={error}
+/>
   </div>
 );
 }
