@@ -1,24 +1,20 @@
 import React from "react";
 import Flashcard from "./Flashcard";
+import api from "../../../client/src/api/axiosConfig.js";
 
-export default function StudySession({ deck, isLoading, error }) {
-    console.log("StudySession props:", { deck, isLoading, error });
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+export default function StudySession({ session, isLoading, error }) {
+   const { deck, activeCards, reserveCards, sessionConfig } = session; 
 
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
+
+if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
+  if (!deck) return <div>No deck found.</div>;
 
   return (
     <div>
-      <h1>Flashcard Deck</h1>
-        {deck.length === 0 ? (
-          <div>No flashcards available.</div>
-        ) : (
-          deck.map((fact) => <Flashcard key={fact.id} deck={fact} />)
-        )}
+      <h2>{deck.deck_name}</h2>
+      <p>Active cards: {activeCards.length}</p>
+      <p>Reserve cards: {reserveCards.length}</p>
     </div>
   );
 }

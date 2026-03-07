@@ -1,6 +1,6 @@
 import { pool } from "../db.js";
 
-
+//CHILDREN FUNCTIONS//
 
 /** helper: verify child belongs to logged-in parent */
 async function assertChildOwnership(client, childId, parentId) {
@@ -92,64 +92,49 @@ export async function deleteChild(req, res, next) {
  * Uses child_fact_progress as the "join point", so you only see facts you've initialized progress for.
  * If you want "all facts whether progress exists or not", we can flip to facts LEFT JOIN progress.
  */
-export async function getChildFacts(req, res, next) {
-  const parentId = req.user.parentId;
-  const childId = Number(req.params.childId);
 
-  try {
-    const client = await pool.connect();
-    try {
-      await assertChildOwnership(client, childId, parentId);
 
-      const q = `
-        SELECT
-          f.id,
-          f.prompt,
-          f.answer,
-          cfp.status,
-          cfp.is_active,
-          cfp.active_position,
-          cfp.times_seen,
-          cfp.times_correct,
-          cfp.streak_correct,
-          cfp.last_seen_at,
-          cfp.next_due_at
-        FROM child_fact_progress cfp
-        JOIN facts f ON f.id = cfp.fact_id
-        WHERE cfp.child_id = $1
-        ORDER BY COALESCE(cfp.active_position, 999999) ASC, f.id ASC;
-      `;
-
-      const r = await client.query(q, [childId]);
-      res.json({ facts: r.rows });
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function getChildDeckById(req, res, next) {
+export async function getChildDeckSession(req, res, next) {
   const parentId = req.user.parentId;
   const childId = Number(req.params.childId);
   const deckId = Number(req.params.deckId);
 
-  if (!Number.isFinite(childId) || !Number.isFinite(deckId)) {
+  const ACTIVE_TARGET = 12;
+  const REVIEW_TARGET = 2;
+  const RESERVE_TARGET = 8;
+
+  if (
+    !Number.isInteger(childId) ||
+    !Number.isInteger(deckId) ||
+    childId <= 0 ||
+    deckId <= 0
+  ) {
     return res.status(400).json({ error: "Invalid childId or deckId" });
+  }
+
+  function shuffle(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
   }
 
   try {
     const client = await pool.connect();
+
     try {
       await assertChildOwnership(client, childId, parentId);
 
-      // Look for an enabled deck state for THIS child + THIS deck
       const deckState = await client.query(
-        `SELECT cds.child_id, cds.deck_id, cds.next_position, cds.is_enabled, cds.created_at,
-                d.name as deck_name, d.subject
+        `SELECT
+           cds.*,
+           d.name AS deck_name,
+           d.subject
          FROM child_deck_state cds
-         JOIN decks d ON d.id = cds.deck_id
+         JOIN decks d
+           ON d.id = cds.deck_id
          WHERE cds.child_id = $1
            AND cds.deck_id = $2
            AND cds.is_enabled = true
@@ -159,20 +144,98 @@ export async function getChildDeckById(req, res, next) {
       );
 
       if (deckState.rowCount === 0) {
-        // Deck isn't enabled/created for this child yet
-        return res.json({ deck: null, facts: [] });
+        return res.json({
+          deck: null,
+          activeCards: [],
+          reserveCards: [],
+        });
       }
 
-      const facts = await client.query(
-        `SELECT f.id, f.prompt, f.answer, df.position
+      // Pull all eligible facts in deterministic order first.
+      // We’ll split them into review/new in JS so the logic is easier to follow.
+      const factsResult = await client.query(
+        `SELECT
+            f.id,
+            f.prompt,
+            f.answer,
+            df.position,
+            COALESCE(cfp.status, 'new') AS status,
+            COALESCE(cfp.is_active, true) AS is_active,
+            COALESCE(cfp.times_seen, 0) AS times_seen,
+            COALESCE(cfp.times_correct, 0) AS times_correct,
+            COALESCE(cfp.streak_correct, 0) AS streak_correct,
+            cfp.last_seen_at,
+            cfp.next_due_at
          FROM deck_facts df
-         JOIN facts f ON f.id = df.fact_id
+         JOIN facts f
+           ON f.id = df.fact_id
+         LEFT JOIN child_fact_progress cfp
+           ON cfp.fact_id = df.fact_id
+          AND cfp.child_id = $2
          WHERE df.deck_id = $1
+           AND COALESCE(cfp.is_active, true) = true
+           AND COALESCE(cfp.status, 'new') <> 'mastered'
          ORDER BY df.position ASC`,
-        [deckId]
+        [deckId, childId]
       );
 
-      res.json({ deck: deckState.rows[0], facts: facts.rows });
+      const allFacts = factsResult.rows;
+
+      const reviewCards = [];
+      const newCards = [];
+
+      for (const fact of allFacts) {
+        const hasBeenSeen = !!fact.last_seen_at || Number(fact.times_seen) > 0;
+        if (hasBeenSeen) {
+          reviewCards.push(fact);
+        } else {
+          newCards.push(fact);
+        }
+      }
+
+      // Reviews should be selected oldest last_seen_at first.
+      reviewCards.sort((a, b) => {
+        const aTime = a.last_seen_at ? new Date(a.last_seen_at).getTime() : 0;
+        const bTime = b.last_seen_at ? new Date(b.last_seen_at).getTime() : 0;
+        return aTime - bTime;
+      });
+
+      // New cards already come in df.position ASC from SQL.
+      // Build a deterministic session packet, then shuffle for display.
+
+      const selectedReviews = reviewCards.slice(0, REVIEW_TARGET);
+      const activeNewCount = Math.max(0, ACTIVE_TARGET - selectedReviews.length);
+      const selectedNew = newCards.slice(0, activeNewCount);
+
+      const selectedIds = new Set([
+        ...selectedReviews.map((c) => c.id),
+        ...selectedNew.map((c) => c.id),
+      ]);
+
+      const remainingReviews = reviewCards.filter((c) => !selectedIds.has(c.id));
+      const remainingNew = newCards.filter((c) => !selectedIds.has(c.id));
+
+      // Reserve strategy:
+      // 1. take more review cards in oldest-last_seen order
+      // 2. then take new cards in deck order
+      const reserveOrdered = [
+        ...remainingReviews,
+        ...remainingNew,
+      ].slice(0, RESERVE_TARGET);
+
+      const activeCards = shuffle([...selectedReviews, ...selectedNew]);
+      const reserveCards = shuffle(reserveOrdered);
+
+      return res.json({
+        deck: deckState.rows[0],
+        sessionConfig: {
+          activeTarget: ACTIVE_TARGET,
+          reviewTarget: REVIEW_TARGET,
+          reserveTarget: RESERVE_TARGET,
+        },
+        activeCards,
+        reserveCards,
+      });
     } finally {
       client.release();
     }
@@ -180,6 +243,7 @@ export async function getChildDeckById(req, res, next) {
     next(err);
   }
 }
+
 
 export async function ensureChildDeck(req, res, next) {
   const parentId = req.user.parentId;
@@ -235,6 +299,95 @@ export async function ensureChildDeck(req, res, next) {
       client.release();
     }
 
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function batchUpdateChildFactProgress(req, res, next) {
+  const parentId = req.user.parentId;
+  const childId = Number(req.params.childId);
+  const deckId = Number(req.params.deckId);
+  const updates = req.body?.updates;
+
+  if (!Number.isInteger(childId) || childId <= 0) {
+    return res.status(400).json({ error: "Invalid childId" });
+  }
+
+  if (!Number.isInteger(deckId) || deckId <= 0) {
+    return res.status(400).json({ error: "Invalid deckId" });
+  }
+
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return res.status(400).json({ error: "Updates array is required" });
+  }
+
+  try {
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      await assertChildOwnership(client, childId, parentId);
+
+      for (const update of updates) {
+        const factId = Number(update.factId);
+        const wasCorrect = Boolean(update.wasCorrect);
+
+        if (!Number.isInteger(factId) || factId <= 0) {
+          throw new Error(`Invalid factId: ${update.factId}`);
+        }
+
+        // Make sure this fact actually belongs to this deck
+        const factInDeck = await client.query(
+          `SELECT 1
+           FROM deck_facts
+           WHERE deck_id = $1
+             AND fact_id = $2
+           LIMIT 1`,
+          [deckId, factId]
+        );
+
+        if (factInDeck.rowCount === 0) {
+          throw new Error(`Fact ${factId} does not belong to deck ${deckId}`);
+        }
+
+        await client.query(
+          `UPDATE child_fact_progress
+           SET
+             times_seen = times_seen + 1,
+             times_correct = times_correct + CASE WHEN $3 THEN 1 ELSE 0 END,
+             streak_correct = CASE
+               WHEN $3 THEN streak_correct + 1
+               ELSE 0
+             END,
+             status = CASE
+               WHEN $3 AND streak_correct + 1 >= 3 THEN 'mastered'
+               WHEN $3 THEN 'learning'
+               ELSE 'new'
+             END,
+             is_active = CASE
+               WHEN $3 AND streak_correct + 1 >= 3 THEN false
+               ELSE true
+             END
+           WHERE child_id = $1
+             AND fact_id = $2`,
+          [childId, factId, wasCorrect]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      return res.json({
+        success: true,
+        processed: updates.length,
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      next(err);
+    } finally {
+      client.release();
+    }
   } catch (err) {
     next(err);
   }
