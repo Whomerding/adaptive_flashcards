@@ -28,7 +28,8 @@ export default function Flashcard({
   const [isLocked, setIsLocked] = React.useState(false);
   const [timeLeft, setTimeLeft] = React.useState(timeLimitSeconds);
 
-  const intervalRef = React.useRef(null);
+  const inputRef = React.useRef(null);
+  const tickTimeoutRef = React.useRef(null);
   const advanceTimeoutRef = React.useRef(null);
   const hasTimedOutRef = React.useRef(false);
 
@@ -39,29 +40,41 @@ export default function Flashcard({
     setTimeLeft(timeLimitSeconds);
     hasTimedOutRef.current = false;
 
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (tickTimeoutRef.current) clearTimeout(tickTimeoutRef.current);
     if (advanceTimeoutRef.current) clearTimeout(advanceTimeoutRef.current);
 
-    intervalRef.current = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.select();
+      }
+    });
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (tickTimeoutRef.current) clearTimeout(tickTimeoutRef.current);
       if (advanceTimeoutRef.current) clearTimeout(advanceTimeoutRef.current);
     };
   }, [card?.id, timeLimitSeconds]);
 
   React.useEffect(() => {
     if (!card || isLocked || isSubmitting) return;
+    if (timeLeft <= 0) return;
 
+    tickTimeoutRef.current = setTimeout(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => {
+      if (tickTimeoutRef.current) clearTimeout(tickTimeoutRef.current);
+    };
+  }, [card, isLocked, isSubmitting, timeLeft]);
+
+  React.useEffect(() => {
+    if (!card || isLocked || isSubmitting) return;
     if (timeLeft > 0) return;
-
     if (hasTimedOutRef.current) return;
+
     hasTimedOutRef.current = true;
-
-    if (intervalRef.current) clearInterval(intervalRef.current);
-
     setIsLocked(true);
     setFeedback({
       message: `Oops! The answer was ${card.answer}`,
@@ -71,7 +84,11 @@ export default function Flashcard({
     advanceTimeoutRef.current = setTimeout(() => {
       onTimedOut();
     }, 1000);
-  }, [timeLeft, card, isLocked, isSubmitting, onTimedOut]);
+
+    return () => {
+      if (advanceTimeoutRef.current) clearTimeout(advanceTimeoutRef.current);
+    };
+  }, [card, isLocked, isSubmitting, timeLeft, onTimedOut]);
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -81,7 +98,7 @@ export default function Flashcard({
     const typed = userAnswer.trim();
     if (!typed) return;
 
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (tickTimeoutRef.current) clearTimeout(tickTimeoutRef.current);
 
     const correct = answersMatch(typed, card.answer);
 
@@ -133,13 +150,15 @@ export default function Flashcard({
 
         <form onSubmit={handleSubmit} style={{ marginTop: "1rem" }}>
           <input
+            ref={inputRef}
             type="text"
             inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
             value={userAnswer}
             onChange={(e) => setUserAnswer(e.target.value)}
             disabled={isSubmitting || isLocked}
             placeholder="Type your answer"
-            autoFocus
             style={{
               fontSize: "1.5rem",
               padding: "0.5rem",
