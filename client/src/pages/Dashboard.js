@@ -26,18 +26,18 @@ export default function Dashboard() {
         fetchChildren();
     }, []); 
 
-  async function handleAddChildren(e) {
+  async function handleAddChildren({name, avatar}) {
     setError(null);
     setLoading(true);
    
     try {
-      const trimmedName = e.trim();
+      const trimmedName = name.trim();
       if (!trimmedName) {
         setError("Child name cannot be empty");
   
         return;
       }
-    const res = await api.post("/api/children", { name: trimmedName });
+    const res = await api.post("/api/children", { name: trimmedName, avatar });
          const newChild = res.data.child ?? res.data; 
     setChildren((prev) => [...prev, newChild]);
     } catch (err) {
@@ -85,7 +85,7 @@ async function chooseDeck(deckId, childId) {
           <Child key={child.id} id ={child.id} loading = {loading} child={child} chooseDeck={chooseDeck} deleteChild={deleteChild} />
         ))}
       </ul>
-      <AddChild handleAddChildren={handleAddChildren} error={error} />
+      <AddChild handleAddChildren={handleAddChildren} deleteChild={deleteChild} children={children} error={error} loading={loading} />
     </div>)
   );
 }

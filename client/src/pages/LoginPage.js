@@ -29,18 +29,18 @@ export default function LoginPage() {
 
 
   return (
-    <div style={{ maxWidth: 380, margin: "40px auto" }}>
-      <h1>Login</h1>
-
-
+    <div className="container d-flex justify-content-center align-items-center vh-80">
+<div className="card shadow p-4" style={{width:"350px"}}>
+    <h3 className="text-center mb-3">Login</h3>
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} name="email" placeholder="Email" autoComplete="email" />
-        <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" autoComplete="current-password" />
-        <button type="submit">Sign in</button>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} name="email" placeholder="Email" autoComplete="email" className="form-control mb-3" />
+        <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" autoComplete="current-password" className="form-control mb-3" />
+        <button type="submit" className="btn btn-primary w-100">Sign in</button>
       </form>
 
       {err ? <p style={{ color: "crimson" }}>{err}</p> : null}
       {debug ? <pre style={{ background: "#f6f6f6", padding: 10 }}>{debug}</pre> : null}
+      </div>
     </div>
   );
 }

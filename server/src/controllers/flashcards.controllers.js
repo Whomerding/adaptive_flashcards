@@ -17,18 +17,25 @@ async function assertChildOwnership(client, childId, parentId) {
 
 export async function addChild(req, res, next) {
   try {
-    const parentId = req.user.parentId; // set by requireAuth middleware
+    const parentId = req.user.parentId;
     const name = (req.body?.name || "").trim();
-    if (!name) return res.status(400).json({ error: "Child name is required" });
+    const avatar = req.body?.avatar || "red-dragon";
+
+    if (!name) {
+      return res.status(400).json({ error: "Child name is required" });
+    }
 
     const r = await pool.query(
-      `INSERT INTO children (parent_id, name)
-       VALUES ($1, $2)
-       RETURNING id, parent_id, name, created_at`,
-      [parentId, name]
+      `INSERT INTO children (parent_id, name, avatar)
+       VALUES ($1, $2, $3)
+       RETURNING id, parent_id, name, avatar, created_at`,
+      [parentId, name, avatar]
     );
-const newChild = r.rows[0];
+
+    const newChild = r.rows[0];
+
     res.status(201).json({ child: newChild });
+
   } catch (err) {
     next(err);
   }
@@ -39,7 +46,7 @@ export async function getChildren(req, res, next) {
     const parentId = req.user.parentId;
 
     const r = await pool.query(
-      `SELECT id, parent_id, name, created_at
+      `SELECT id, parent_id, name, avatar, created_at
        FROM children
        WHERE parent_id = $1
        ORDER BY created_at ASC`,
