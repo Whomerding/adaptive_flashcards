@@ -19,6 +19,54 @@ function LandingPage() {
                       </div> 
                       </div> 
                         </div>
+                        <section className="container py-5">
+  <div className="text-center mb-5">
+    <h2>Smarter Than Ordinary Flashcards</h2>
+    <p className="text-muted">
+      Fact Quest adapts to each child, helping them build real math fluency.
+    </p>
+  </div>
+
+  <div className="row text-center g-4">
+    
+    <div className="col-md-3">
+      <div className="p-3">
+        <h5>Adaptive Practice</h5>
+        <p className="text-muted">
+          The system tracks every answer and focuses practice on the facts students struggle with most.
+        </p>
+      </div>
+    </div>
+
+    <div className="col-md-3">
+      <div className="p-3">
+        <h5>Built-In Review</h5>
+        <p className="text-muted">
+          Previously learned facts are automatically mixed into each session to keep skills sharp.
+        </p>
+      </div>
+    </div>
+
+    <div className="col-md-3">
+      <div className="p-3">
+        <h5>Mastery Tracking</h5>
+        <p className="text-muted">
+          Facts must be answered correctly multiple times before they are considered mastered.
+        </p>
+      </div>
+    </div>
+
+    <div className="col-md-3">
+      <div className="p-3">
+        <h5>Short Sessions</h5>
+        <p className="text-muted">
+          Quick practice sessions keep kids engaged while building lightning-fast recall.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</section>
                             </div>
     );
 }

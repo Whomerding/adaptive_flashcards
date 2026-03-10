@@ -13,8 +13,8 @@ const avatarOptions = [
     src: "/avatars/green_dragon.png",
   },
   {
-    key: "white_tiger",
-    label: "White Tiger",
+    key: "blue_tiger",
+    label: "Blue Tiger",
     src: "/avatars/blue_tiger.png",
   },
   {
