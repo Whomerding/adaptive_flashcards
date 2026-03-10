@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../auth/useAuth";
-
+import "../styles/App.css";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -29,7 +29,7 @@ export default function LoginPage() {
 
 
   return (
-    <div className="container d-flex justify-content-center align-items-center vh-80">
+    <div className="container d-flex justify-content-center align-items-center vh-80 mt-5">
 <div className="card shadow p-4" style={{width:"350px"}}>
     <h3 className="text-center mb-3">Login</h3>
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>

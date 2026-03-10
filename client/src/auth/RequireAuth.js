@@ -7,7 +7,7 @@ export default function RequireAuth() {
   const location = useLocation();
 
   if (isBootstrapping) return <div>Loading...</div>;
-  if (!isAuthed) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (!isAuthed) return <Navigate to="/" replace state={{ from: location }} />;
 console.log("isAuthed:", isAuthed);
   return <Outlet />;
 }

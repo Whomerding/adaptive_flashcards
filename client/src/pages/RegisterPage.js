@@ -23,19 +23,20 @@ export default function RegisterPage() {
     }
   }
 
-  return (
-    <div style={{ maxWidth: 400, margin: "40px auto", textAlign: "center" }}>
-      <h2>Create Account</h2>
+ return (
+  <div className="container d-flex justify-content-center align-items-center vh-80 mt-5">
+    <div className="card shadow p-4" style={{ width: "350px" }}>
+      <h3 className="text-center mb-3">Create Account</h3>
 
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        
+      <form onSubmit={handleSubmit}>
         <input
           type="email"
           placeholder="Email"
           value={email}
           required
           onChange={(e) => setEmail(e.target.value)}
-          style={{ padding: 8 }}
+          autoComplete="email"
+          className="form-control mb-3"
         />
 
         <input
@@ -44,19 +45,21 @@ export default function RegisterPage() {
           value={password}
           required
           onChange={(e) => setPassword(e.target.value)}
-          style={{ padding: 8 }}
+          autoComplete="new-password"
+          className="form-control mb-3"
         />
 
-        {error && <div style={{ color: "red" }}>{error}</div>}
+        {error && <p className="text-danger">{error}</p>}
 
-        <button type="submit" style={{ padding: 10 }}>
+        <button type="submit" className="btn btn-primary w-100">
           Register
         </button>
       </form>
 
-      <p style={{ marginTop: 16 }}>
+      <p className="text-center mt-3 mb-0">
         Already have an account? <Link to="/login">Login</Link>
       </p>
     </div>
-  );
+  </div>
+);
 }
