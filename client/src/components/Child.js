@@ -7,10 +7,6 @@ function Child(props) {
     props.chooseDeck(deckId, props.id);
   };
 
-  const handleDelete = () => {
-    props.deleteChild(props.id);
-  };
-
   return (
     <div className="col">
      <div className="card">

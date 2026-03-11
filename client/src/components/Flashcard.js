@@ -181,8 +181,9 @@ export default function Flashcard({
 const parsedPrompt = parseMathPrompt(card?.prompt);
 
   return (
-    <div className="flashcard-wrapper">
-      <div className={`flashcard-shell ${feedbackClass}`}>
+    <div className="flashcard-wrapper flashcard-page">
+      <div className="flashcard-shell-wrap">
+  <div className={`flashcard-shell ${feedbackClass}`}>
         <div className="flashcard-timer-wrap">
           <div className={`flashcard-timer ${timeLeft <= 3 ? "flashcard-timer--urgent" : ""}`}>
             ⏱ {Math.max(0, timeLeft)}
@@ -252,7 +253,7 @@ const parsedPrompt = parseMathPrompt(card?.prompt);
           </div>
         </div>
       </div>
-
+</div>
       <div className="flashcard-actions">
         <button
           onClick={onSaveProgress}

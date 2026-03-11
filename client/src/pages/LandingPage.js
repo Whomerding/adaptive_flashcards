@@ -4,10 +4,13 @@ function LandingPage() {
 
 
   return (
-    <div class="container col-xxl-8 px-4 py-5">
+    <div style={{"backgroundColor": "#DDEEEF"
+}}> 
+
+    <div class="container col-xxl-8 px-4 py-5 hero">
     <div class="row flex-lg-row-reverse align-items-center g-5 py-5">
          <div class="col-10 col-sm-8 col-lg-6">
-            <img src= "./img/LandingPageImg.png" class="d-block mx-lg-auto img-fluid" alt="Bootstrap Themes" width="700" height="500" loading="lazy">
+            <img src= "./img/LandingPageImg.png" class="d-block mx-lg-auto img-fluid" alt="Bootstrap Themes" width="500" height="300" loading="lazy">
             </img>
               </div>
                <div class="col-lg-6">
@@ -19,7 +22,7 @@ function LandingPage() {
                       </div> 
                       </div> 
                         </div>
-                        <section className="container py-5">
+<section className="container py-5 features">
   <div className="text-center mb-5">
     <h2>Smarter Than Ordinary Flashcards</h2>
     <p className="text-muted">
@@ -31,6 +34,7 @@ function LandingPage() {
     
     <div className="col-md-3">
       <div className="p-3">
+        <h4>🎯</h4>
         <h5>Adaptive Practice</h5>
         <p className="text-muted">
           The system tracks every answer and focuses practice on the facts students struggle with most.
@@ -40,6 +44,7 @@ function LandingPage() {
 
     <div className="col-md-3">
       <div className="p-3">
+        <h4>🔄</h4>
         <h5>Built-In Review</h5>
         <p className="text-muted">
           Previously learned facts are automatically mixed into each session to keep skills sharp.
@@ -49,6 +54,7 @@ function LandingPage() {
 
     <div className="col-md-3">
       <div className="p-3">
+        <h4>🌟</h4>
         <h5>Mastery Tracking</h5>
         <p className="text-muted">
           Facts must be answered correctly multiple times before they are considered mastered.
@@ -58,6 +64,7 @@ function LandingPage() {
 
     <div className="col-md-3">
       <div className="p-3">
+        <h4>⏰</h4>
         <h5>Short Sessions</h5>
         <p className="text-muted">
           Quick practice sessions keep kids engaged while building lightning-fast recall.
@@ -67,8 +74,8 @@ function LandingPage() {
 
   </div>
 </section>
-                            </div>
-    );
+    </div>
+    </div>   );
 }
 
 

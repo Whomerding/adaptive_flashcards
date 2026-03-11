@@ -29,7 +29,7 @@ export default function Navbar() {
         <ul className="nav nav-pills align-items-center">
           {isAuthed?(<li className="nav-item">
             <Link to="/dashboard" className="nav-link">
-              Home
+              Dashboard
             </Link>
           </li> ): (<li className="nav-item">
             <Link to="/" className="nav-link">

@@ -3,73 +3,70 @@ import api from "../api/axiosConfig";
 import StudySession from "../components/StudySession";
 import { useParams } from "react-router-dom";
 
-
 export default function ChildDeckPage() {
+  const { childId, deckId } = useParams();
 
-const {childId, deckId} = useParams();
-const [session, setSession] = React.useState({
-  deck: null,
-  activeCards: [],
-  reserveCards: [],
-  sessionConfig: null,
-});
+  const [session, setSession] = React.useState({
+    deck: null,
+    cards: [],
+    sessionConfig: null,
+  });
 
-const [isDeckLoading, setDeckLoading] = React.useState(true);
-const [error, setError] = React.useState("");
+  const [isDeckLoading, setDeckLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
 
-React.useEffect(() => {
-  let isMounted = true;
+  React.useEffect(() => {
+    let isMounted = true;
 
-  async function getChildDeckSession(deckId, childId) {
-    setDeckLoading(true);
-    setError("");
+    async function getChildDeckSession(deckId, childId) {
+      setDeckLoading(true);
+      setError("");
 
-    try {
-      let res = await api.get(`/api/children/${childId}/decks/${deckId}/session`);
-      console.log("API response for deck session:", res.data);
+      try {
+        let res = await api.get(`/api/children/${childId}/decks/${deckId}/session`);
+        console.log("API response for deck session:", res.data);
 
-      if (res.data.deck === null) {
-        await api.post(`/api/children/${childId}/decks/${deckId}/ensure`);
-        res = await api.get(`/api/children/${childId}/decks/${deckId}/session`);
+        if (res.data.deck === null) {
+          await api.post(`/api/children/${childId}/decks/${deckId}/ensure`);
+          res = await api.get(`/api/children/${childId}/decks/${deckId}/session`);
+          console.log("API response after ensure:", res.data);
+        }
+
+        if (!isMounted) return;
+
+        setSession({
+          deck: res.data.deck ?? null,
+          cards: res.data.cards ?? [],
+          sessionConfig: res.data.sessionConfig ?? null,
+        });
+      } catch (err) {
+        console.error("Failed to fetch deck session:", err);
+
+        if (!isMounted) return;
+        setError("Failed to load deck");
+      } finally {
+        if (isMounted) setDeckLoading(false);
       }
-
-      if (!isMounted) return;
-
-      setSession({
-        deck: res.data.deck ?? null,
-        activeCards: res.data.activeCards ?? [],
-        reserveCards: res.data.reserveCards ?? [],
-        sessionConfig: res.data.sessionConfig ?? null,
-      });
-    } catch (err) {
-      console.error("Failed to fetch deck session:", err);
-
-      if (!isMounted) return;
-      setError("Failed to load deck");
-    } finally {
-      if (isMounted) setDeckLoading(false);
     }
-  }
 
-  getChildDeckSession(deckId, childId);
+    getChildDeckSession(deckId, childId);
 
-  return () => {
-    isMounted = false;
-  };
-}, [deckId, childId]);
+    return () => {
+      isMounted = false;
+    };
+  }, [deckId, childId]);
 
-console.log("session state:", session, isDeckLoading, error);
+  console.log("session state:", session, isDeckLoading, error);
 
-return (
-  <div>
-    <h1>Child Deck Page</h1>
-  <StudySession
-  session={session}
-  childId={childId}
-  deckId={deckId}
-  isLoading={isDeckLoading}
-  error={error}
-/>
-  </div>
-);
+  return (
+    <div>
+      <StudySession
+        session={session}
+        childId={childId}
+        deckId={deckId}
+        isLoading={isDeckLoading}
+        error={error}
+      />
+    </div>
+  );
 }

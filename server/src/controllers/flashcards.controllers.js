@@ -108,7 +108,6 @@ export async function getChildDeckSession(req, res, next) {
 
   const ACTIVE_TARGET = 12;
   const REVIEW_TARGET = 2;
-  const RESERVE_TARGET = 8;
 
   if (
     !Number.isInteger(childId) ||
@@ -117,15 +116,6 @@ export async function getChildDeckSession(req, res, next) {
     deckId <= 0
   ) {
     return res.status(400).json({ error: "Invalid childId or deckId" });
-  }
-
-  function shuffle(array) {
-    const arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
   }
 
   try {
@@ -153,13 +143,14 @@ export async function getChildDeckSession(req, res, next) {
       if (deckState.rowCount === 0) {
         return res.json({
           deck: null,
-          activeCards: [],
-          reserveCards: [],
+          cards: [],
+          sessionConfig: {
+            activeTarget: ACTIVE_TARGET,
+            reviewTarget: REVIEW_TARGET,
+          },
         });
       }
 
-      // Pull all eligible facts in deterministic order first.
-      // We’ll split them into review/new in JS so the logic is easier to follow.
       const factsResult = await client.query(
         `SELECT
             f.id,
@@ -180,8 +171,6 @@ export async function getChildDeckSession(req, res, next) {
            ON cfp.fact_id = df.fact_id
           AND cfp.child_id = $2
          WHERE df.deck_id = $1
-           AND COALESCE(cfp.is_active, true) = true
-           AND COALESCE(cfp.status, 'new') <> 'mastered'
          ORDER BY df.position ASC`,
         [deckId, childId]
       );
@@ -189,59 +178,43 @@ export async function getChildDeckSession(req, res, next) {
       const allFacts = factsResult.rows;
 
       const reviewCards = [];
+      const learningCards = [];
       const newCards = [];
 
       for (const fact of allFacts) {
-        const hasBeenSeen = !!fact.last_seen_at || Number(fact.times_seen) > 0;
-        if (hasBeenSeen) {
+        const status = fact.status ?? "new";
+
+        if (status === "mastered") {
           reviewCards.push(fact);
+        } else if (status === "learning") {
+          learningCards.push(fact);
         } else {
           newCards.push(fact);
         }
       }
 
-      // Reviews should be selected oldest last_seen_at first.
+      // Oldest mastered cards get picked first for review
       reviewCards.sort((a, b) => {
         const aTime = a.last_seen_at ? new Date(a.last_seen_at).getTime() : 0;
         const bTime = b.last_seen_at ? new Date(b.last_seen_at).getTime() : 0;
         return aTime - bTime;
       });
 
-      // New cards already come in df.position ASC from SQL.
-      // Build a deterministic session packet, then shuffle for display.
-
       const selectedReviews = reviewCards.slice(0, REVIEW_TARGET);
-      const activeNewCount = Math.max(0, ACTIVE_TARGET - selectedReviews.length);
-      const selectedNew = newCards.slice(0, activeNewCount);
 
-      const selectedIds = new Set([
-        ...selectedReviews.map((c) => c.id),
-        ...selectedNew.map((c) => c.id),
-      ]);
-
-      const remainingReviews = reviewCards.filter((c) => !selectedIds.has(c.id));
-      const remainingNew = newCards.filter((c) => !selectedIds.has(c.id));
-
-      // Reserve strategy:
-      // 1. take more review cards in oldest-last_seen order
-      // 2. then take new cards in deck order
-      const reserveOrdered = [
-        ...remainingReviews,
-        ...remainingNew,
-      ].slice(0, RESERVE_TARGET);
-
-      const activeCards = shuffle([...selectedReviews, ...selectedNew]);
-      const reserveCards = shuffle(reserveOrdered);
+      const cards = [
+        ...selectedReviews,
+        ...learningCards,
+        ...newCards,
+      ];
 
       return res.json({
         deck: deckState.rows[0],
         sessionConfig: {
           activeTarget: ACTIVE_TARGET,
           reviewTarget: REVIEW_TARGET,
-          reserveTarget: RESERVE_TARGET,
         },
-        activeCards,
-        reserveCards,
+        cards,
       });
     } finally {
       client.release();
@@ -416,21 +389,28 @@ export async function batchUpdateChildFactProgress(req, res, next) {
 
         const current = existingProgress.rows[0];
 
-        const newTimesSeen = Number(current.times_seen) + 1;
-        const newTimesCorrect = Number(current.times_correct) + (correct ? 1 : 0);
+const newTimesSeen = Number(current.times_seen) + 1;
+const newTimesCorrect = Number(current.times_correct) + (correct ? 1 : 0);
 
-        let newStreakCorrect;
-        if (timedOut) {
-          newStreakCorrect = 0;
-        } else if (correct) {
-          newStreakCorrect = Number(current.streak_correct) + 1;
-        } else {
-          newStreakCorrect = 0;
-        }
+let newStreakCorrect;
+if (timedOut) {
+  newStreakCorrect = 0;
+} else if (correct) {
+  newStreakCorrect = Number(current.streak_correct) + 1;
+} else {
+  newStreakCorrect = 0;
+}
 
-        const isMastered = newStreakCorrect >= 3;
-        const newStatus = isMastered ? "mastered" : "learning";
-        const isActive = !isMastered;
+// Master after 3 correct total, not 3 in a row
+const isMastered = newTimesCorrect >= 3;
+
+const newStatus = isMastered
+  ? "mastered"
+  : newTimesSeen > 0
+    ? "learning"
+    : "new";
+
+const isActive = !isMastered;
 
         await client.query(
           `UPDATE child_fact_progress

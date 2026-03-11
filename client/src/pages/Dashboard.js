@@ -81,7 +81,6 @@ async function chooseDeck(deckId, childId) {
     <div>
       
       <div className="container py-4">
-        <h3>Parent Dashboard</h3>
         <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-5">
         {children.map((child) => (
           <Child key={child.id} id ={child.id} loading = {loading} child={child} chooseDeck={chooseDeck} deleteChild={deleteChild} />
