@@ -2,9 +2,9 @@
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-
 import { pool } from "../db.js";
 import { cookieOptions } from "../utils/cookies.js";
+import { sendPasswordResetEmail } from "../utils/mailer.js";
 
 const saltRounds = 10;
 
@@ -205,3 +205,141 @@ export function getCsrfToken(req, res) {
   res.json({ csrfToken: csrf });
 }
 
+
+
+export async function requestPasswordReset(req, res, next) {
+  const { email } = req.body;
+
+  if (!email || typeof email !== "string") {
+    return res.status(400).json({ error: "Email is required." });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const genericMessage =
+    "If an account with that email exists, a password reset link has been sent.";
+
+  try {
+    const parentResult = await pool.query(
+      `SELECT id, email
+       FROM parents
+       WHERE email = $1`,
+      [normalizedEmail]
+    );
+
+    // Prevent email enumeration
+    if (parentResult.rows.length === 0) {
+      return res.status(200).json({ message: genericMessage });
+    }
+
+    const parent = parentResult.rows[0];
+
+    // Generate secure token
+    const rawToken = crypto.randomBytes(32).toString("hex");
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+
+    // Remove any previous reset tokens
+    await pool.query(
+      `DELETE FROM password_reset_tokens
+       WHERE parent_id = $1`,
+      [parent.parent_id]
+    );
+
+    await pool.query(
+      `INSERT INTO password_reset_tokens (parent_id, token_hash, expires_at)
+       VALUES ($1, $2, $3)`,
+      [parent.parent_id, tokenHash, expiresAt]
+    );
+
+    const resetUrl =
+      `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}`;
+
+    await sendPasswordResetEmail({
+      to: parent.email,
+      resetUrl
+    });
+
+    return res.status(200).json({ message: genericMessage });
+
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+export async function resetPassword(req, res, next) {
+  const { token, newPassword } = req.body;
+
+  if (!token || typeof token !== "string") {
+    return res.status(400).json({ error: "Reset token is required." });
+  }
+
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({
+      error: "Password must be at least 8 characters."
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const tokenResult = await client.query(
+      `SELECT parent_id
+       FROM password_reset_tokens
+       WHERE token_hash = $1
+       AND expires_at > NOW()
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    if (tokenResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "This reset link is invalid or expired."
+      });
+    }
+
+    const parentId = tokenResult.rows[0].parent_id;
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await client.query(
+      `UPDATE parents
+       SET password_hash = $1
+       WHERE parent_id = $2`,
+      [passwordHash, parentId]
+    );
+
+    // delete token after use
+    await client.query(
+      `DELETE FROM password_reset_tokens
+       WHERE parent_id = $1`,
+      [parentId]
+    );
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      message: "Password reset successful."
+    });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    next(err);
+  } finally {
+    client.release();
+  }
+}

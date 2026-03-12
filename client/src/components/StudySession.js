@@ -1,8 +1,9 @@
 import React from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/axiosConfig";
 import Flashcard from "./Flashcard";
 import { apiFetch } from "../utils/api";
+
 export default function StudySession({
   session,
   childId,
@@ -10,13 +11,6 @@ export default function StudySession({
   isLoading,
   error,
 }) {
-  /*
-    UI state:
-    - activeCards: the current shuffled pool shown to the child
-    - reserveCards: ordered cards waiting to be pulled into active
-    - currentCardIndex: which active card is currently displayed
-    - pendingResults: mirrored UI copy of unsaved results
-  */
   const [activeCards, setActiveCards] = React.useState([]);
   const [reserveCards, setReserveCards] = React.useState([]);
   const [currentCardIndex, setCurrentCardIndex] = React.useState(0);
@@ -26,28 +20,27 @@ export default function StudySession({
   const [submitError, setSubmitError] = React.useState("");
   const [cardStartedAt, setCardStartedAt] = React.useState(null);
 
-  /*
-    Refs:
-    - pendingResultsRef is the true source of truth for batching.
-      We use a ref because state updates are async and batching logic
-      needs the newest value immediately.
-    - isFlushingRef prevents overlapping save calls.
-    - prevPathRef helps detect React-router navigation changes.
-  */
+  const [showInactivityPrompt, setShowInactivityPrompt] = React.useState(false);
+  const [isPaused, setIsPaused] = React.useState(false);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const pendingResultsRef = React.useRef([]);
   const isFlushingRef = React.useRef(false);
-
-  const location = useLocation();
   const prevPathRef = React.useRef(location.pathname);
+
+  const inactivityWarningTimerRef = React.useRef(null);
+  const inactivityEndTimerRef = React.useRef(null);
+  const sessionEndedRef = React.useRef(false);
+  const consecutiveTimeoutsRef = React.useRef(0);
 
   const BATCH_SIZE = 20;
   const ACTIVE_TARGET = session?.sessionConfig?.activeTarget ?? 12;
 
-  /*
-    Shuffle helper:
-    We shuffle only the active pool.
-    Reserve stays ordered so progression still follows deck order.
-  */
+  const INACTIVITY_LIMIT = 15 * 1000;
+  const WARNING_GRACE_PERIOD = 10 * 1000;
+
   function shuffle(array) {
     const arr = [...array];
     for (let i = arr.length - 1; i > 0; i -= 1) {
@@ -57,11 +50,6 @@ export default function StudySession({
     return arr;
   }
 
-  /*
-    When a fresh session arrives from the backend:
-    - first N cards become active and get shuffled
-    - the rest go into reserve in order
-  */
   React.useEffect(() => {
     if (!session) return;
 
@@ -79,22 +67,19 @@ export default function StudySession({
     setSessionFinished(false);
     setSubmitError("");
     setCardStartedAt(Date.now());
+    setShowInactivityPrompt(false);
+    setIsPaused(false);
+
+    sessionEndedRef.current = false;
+    consecutiveTimeoutsRef.current = 0;
   }, [session, ACTIVE_TARGET]);
 
-  /*
-    Keep the ref synchronized with state for UI-driven reads.
-    The ref is what saving logic uses.
-  */
   React.useEffect(() => {
     pendingResultsRef.current = pendingResults;
   }, [pendingResults]);
 
   const currentCard = activeCards[currentCardIndex] ?? null;
 
-  /*
-    Main API save function.
-    Uses normal axios for standard save flows.
-  */
   async function flushBatch(resultsToSend) {
     if (!resultsToSend.length) return;
     if (isFlushingRef.current) return;
@@ -121,13 +106,6 @@ export default function StudySession({
     }
   }
 
-  /*
-    Flush whatever is currently pending.
-    This is used by:
-    - manual save
-    - autosave
-    - session completion
-  */
   async function flushPendingResults() {
     const resultsToSend = [...pendingResultsRef.current];
     if (!resultsToSend.length) return;
@@ -138,35 +116,27 @@ export default function StudySession({
     setPendingResults([]);
   }
 
-  /*
-    Route/unload-safe flush.
-    We use fetch + keepalive so React-router redirects and page exits
-    have a better chance to persist the data.
-  */
+  function flushPendingResultsOnLeave() {
+    const resultsToSend = [...pendingResultsRef.current];
+    if (!resultsToSend.length) return;
 
+    console.log(
+      `Attempting to flush pending results on leave for child ${childId} deck ${deckId}...`
+    );
+    console.log("Flushing pending results on leave:", resultsToSend);
 
-function flushPendingResultsOnLeave() {
-  console.log(`Attempting to flush pending results on leave for child ${childId} deck ${deckId}...`);
-  const resultsToSend = [...pendingResultsRef.current];
-  if (!resultsToSend.length) return;
+    apiFetch(`/api/children/${childId}/decks/${deckId}/batch-progress`, {
+      method: "POST",
+      keepalive: true,
+      body: JSON.stringify({ results: resultsToSend }),
+    }).catch((err) => {
+      console.error("Failed to flush on leave:", err);
+    });
 
-  console.log("Flushing pending results on leave:", resultsToSend);
+    pendingResultsRef.current = [];
+    setPendingResults([]);
+  }
 
-  apiFetch(`/api/children/${childId}/decks/${deckId}/batch-progress`, {
-    method: "POST",
-    keepalive: true,
-    body: JSON.stringify({ results: resultsToSend }),
-  }).catch((err) => {
-    console.error("Failed to flush on leave:", err);
-  });
-
-  pendingResultsRef.current = [];
-  setPendingResults([]);
-}
-  /*
-    When a mastered card is removed, refill active from reserve.
-    Active is reshuffled after refill so the new card is blended in.
-  */
   function refillActiveCards(updatedActive, updatedReserve) {
     const nextActive = [...updatedActive];
     const nextReserve = [...updatedReserve];
@@ -181,9 +151,6 @@ function flushPendingResultsOnLeave() {
     };
   }
 
-  /*
-    Auto-flush when batch size is reached.
-  */
   async function maybeFlushLargeBatch() {
     const resultsToSend = [...pendingResultsRef.current];
     if (resultsToSend.length < BATCH_SIZE) return;
@@ -193,25 +160,79 @@ function flushPendingResultsOnLeave() {
     setPendingResults([]);
   }
 
-  /*
-    Main card result handler:
-    - calculates local learning stats
-    - updates UI immediately
-    - appends to pending batch
-    - optionally removes mastered cards and refills from reserve
-  */
+  function clearInactivityTimers() {
+    if (inactivityWarningTimerRef.current) {
+      clearTimeout(inactivityWarningTimerRef.current);
+      inactivityWarningTimerRef.current = null;
+    }
+
+    if (inactivityEndTimerRef.current) {
+      clearTimeout(inactivityEndTimerRef.current);
+      inactivityEndTimerRef.current = null;
+    }
+  }
+
+  function endSessionDueToInactivity() {
+    if (sessionEndedRef.current) return;
+    sessionEndedRef.current = true;
+
+    clearInactivityTimers();
+    setShowInactivityPrompt(false);
+    setIsPaused(true);
+
+    flushPendingResultsOnLeave();
+    setSessionFinished(true);
+
+    alert("Game ended due to inactivity.");
+    navigate("/dashboard");
+  }
+
+  function pauseForInactivity() {
+    if (sessionEndedRef.current || sessionFinished) return;
+
+    clearInactivityTimers();
+    setShowInactivityPrompt(true);
+    setIsPaused(true);
+
+    inactivityEndTimerRef.current = setTimeout(() => {
+      endSessionDueToInactivity();
+    }, WARNING_GRACE_PERIOD);
+  }
+
+  function resetInactivityTimer() {
+    if (sessionEndedRef.current || sessionFinished || isPaused) return;
+
+    clearInactivityTimers();
+
+    inactivityWarningTimerRef.current = setTimeout(() => {
+      pauseForInactivity();
+    }, INACTIVITY_LIMIT);
+  }
+
+  function handleResumeAfterPause() {
+    if (sessionEndedRef.current) return;
+
+    clearInactivityTimers();
+    setShowInactivityPrompt(false);
+    setIsPaused(false);
+    setCardStartedAt(Date.now());
+    consecutiveTimeoutsRef.current = 0;
+    resetInactivityTimer();
+  }
+
   async function handleCardResult({
     factId,
     correct,
     timedOut = false,
     typedAnswer = "",
   }) {
-    if (!currentCard) return;
+    if (isPaused || sessionEndedRef.current) return;
 
     const now = new Date().toISOString();
     const responseMs = cardStartedAt ? Date.now() - cardStartedAt : null;
 
     const answeredCard = activeCards[currentCardIndex];
+    if (!answeredCard) return;
 
     const currentTimesSeen = Number(answeredCard.times_seen ?? 0);
     const currentTimesCorrect = Number(answeredCard.times_correct ?? 0);
@@ -244,6 +265,12 @@ function flushPendingResultsOnLeave() {
     const nextPending = [...pendingResultsRef.current, result];
     pendingResultsRef.current = nextPending;
 
+    if (timedOut) {
+      consecutiveTimeoutsRef.current += 1;
+    } else {
+      consecutiveTimeoutsRef.current = 0;
+    }
+
     let nextActive = [...activeCards];
     let nextReserve = [...reserveCards];
     let nextIndex = currentCardIndex;
@@ -269,11 +296,6 @@ function flushPendingResultsOnLeave() {
         nextIndex = 0;
       }
     } else {
-      /*
-        For non-mastered cards:
-        - move the answered card to the back
-        - do NOT reshuffle every single answer, which can create jumpy UX
-      */
       nextActive.splice(currentCardIndex, 1);
       nextActive.push(updatedAnsweredCard);
 
@@ -295,9 +317,10 @@ function flushPendingResultsOnLeave() {
     if (noCardsLeft) {
       try {
         await flushPendingResults();
+        clearInactivityTimers();
         setSessionFinished(true);
       } catch (err) {
-        // leave pending results intact if save fails
+        // leave pending intact if save fails
       }
       return;
     }
@@ -305,16 +328,42 @@ function flushPendingResultsOnLeave() {
     try {
       await maybeFlushLargeBatch();
     } catch (err) {
-      // leave pending results intact if save fails
+      // leave pending intact if save fails
     }
+
+    if (consecutiveTimeoutsRef.current >= 2) {
+      pauseForInactivity();
+      return;
+    }
+
+    resetInactivityTimer();
   }
 
-  /*
-    Real browser exits:
-    - refresh
-    - tab close
-    - full page navigation
-  */
+  React.useEffect(() => {
+    const activityEvents = ["click", "keydown", "touchstart", "mousemove"];
+
+    function handleActivity() {
+      if (showInactivityPrompt || sessionFinished || sessionEndedRef.current) {
+        return;
+      }
+
+      resetInactivityTimer();
+    }
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity);
+    });
+
+    resetInactivityTimer();
+
+    return () => {
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, handleActivity);
+      });
+      clearInactivityTimers();
+    };
+  }, [showInactivityPrompt, sessionFinished, isPaused]);
+
   React.useEffect(() => {
     function handlePageHide() {
       flushPendingResultsOnLeave();
@@ -327,6 +376,7 @@ function flushPendingResultsOnLeave() {
     function handleVisibilityChange() {
       if (document.visibilityState === "hidden") {
         flushPendingResultsOnLeave();
+        pauseForInactivity();
       }
     }
 
@@ -339,13 +389,8 @@ function flushPendingResultsOnLeave() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [childId, deckId]);
+  }, [childId, deckId, sessionFinished]);
 
-  /*
-    React-router SPA navigation:
-    beforeunload/pagehide usually won't fire here,
-    so we flush when the pathname changes.
-  */
   React.useEffect(() => {
     if (prevPathRef.current !== location.pathname) {
       flushPendingResultsOnLeave();
@@ -354,19 +399,13 @@ function flushPendingResultsOnLeave() {
     prevPathRef.current = location.pathname;
   }, [location.pathname, childId, deckId]);
 
-  /*
-    Also flush on unmount just in case the study component is removed
-    without a full browser unload.
-  */
   React.useEffect(() => {
     return () => {
+      clearInactivityTimers();
       flushPendingResultsOnLeave();
     };
   }, [childId, deckId]);
 
-  /*
-    Autosave every 30 seconds while there are unsaved results.
-  */
   React.useEffect(() => {
     if (!pendingResults.length) return;
 
@@ -403,13 +442,45 @@ function flushPendingResultsOnLeave() {
   }
 
   return (
-    <div>
+    <div style={{ position: "relative" }}>
+      {showInactivityPrompt && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: "1.5rem",
+              borderRadius: "12px",
+              maxWidth: "400px",
+              width: "90%",
+              textAlign: "center",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+            }}
+          >
+            <h3>Are you still there?</h3>
+            <p>Your game is paused so your score does not get messed up.</p>
+            <p>Press continue to keep playing.</p>
+            <button onClick={handleResumeAfterPause}>Continue Game</button>
+          </div>
+        </div>
+      )}
+
       <Flashcard
         key={currentCard.id}
         card={currentCard}
         isSubmitting={isSubmitting}
         canSaveProgress={pendingResults.length > 0}
         timeLimitSeconds={8}
+        isPaused={isPaused}
         onSubmitAnswer={({ typedAnswer, correct }) =>
           handleCardResult({
             factId: currentCard.id,

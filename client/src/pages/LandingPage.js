@@ -1,26 +1,46 @@
-
+import React, { useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../auth/AuthProvider";
 
 function LandingPage() {
-
+  const navigate = useNavigate();
+  const { isAuthed } = React.useContext(AuthContext);
 
   return (
     <div style={{"backgroundColor": "#DDEEEF"
 }}> 
 
-    <div class="container col-xxl-8 px-4 py-5 hero">
-    <div class="row flex-lg-row-reverse align-items-center g-5 py-5">
-         <div class="col-10 col-sm-8 col-lg-6">
-            <img src= "./img/LandingPageImg.png" class="d-block mx-lg-auto img-fluid" alt="Bootstrap Themes" width="500" height="300" loading="lazy">
+    <div className="container col-xxl-8 px-4 py-5 hero">
+    <div className="row flex-lg-row-reverse align-items-center g-5 py-5">
+         <div className="col-10 col-sm-8 col-lg-6">
+            <img src= "./img/LandingPageImg.png" className="d-block mx-lg-auto img-fluid" alt="Bootstrap Themes" width="500" height="300" loading="lazy">
             </img>
               </div>
-               <div class="col-lg-6">
-                 <h1 class="display-5 fw-bold text-body-emphasis lh-1 mb-3">Build Lightning-Fast Math Fact Recall</h1> 
-                 <p class="lead">A 5-minute daily practice that helps kids master addition, subtraction, multiplication, and division.</p> 
-                 <div class="d-grid gap-2 d-md-flex justify-content-md-start"> 
-                    <button type="button" class="btn btn-primary btn-lg px-4 me-md-2" onClick={() => window.location.href = '/login'}>Login</button>
-                     <button type="button" class="btn btn-outline-secondary btn-lg px-4" onClick={() => window.location.href = '/register'}>Register Now</button>
+               <div className="col-lg-6">
+                 <h1 className="display-5 fw-bold text-body-emphasis lh-1 mb-3">Build Lightning-Fast Math Fact Recall</h1> 
+                 <p className="lead">A 5-minute daily practice that helps kids master addition, subtraction, multiplication, and division.</p> 
+                 <div className="d-grid gap-2 d-md-flex justify-content-md-start"> 
+                  {isAuthed? (
+                    <button type="button" 
+                    className="btn btn-primary btn-lg px-4 me-md-2" 
+                    onClick={() => navigate('/dashboard')}>
+                      Go to Dashboard
+                      </button>
+                  ): (
+                    <>
+                    <button type="button" 
+                    className="btn btn-primary btn-lg px-4 me-md-2" 
+                    onClick={() => navigate('/login')}>Login
+                    </button>
+
+                     <button type="button" 
+                     className="btn btn-outline-secondary btn-lg px-4" 
+                     onClick={() => navigate('/register')}>
+                      Register Now
+                      </button>
+                  </>)}
                       </div> 
-                      </div> 
+                      </div>
                         </div>
 <section className="container py-5 features">
   <div className="text-center mb-5">

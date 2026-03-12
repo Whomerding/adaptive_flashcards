@@ -14,6 +14,7 @@ function answersMatch(typed, expected) {
     String(expected).trim().toLowerCase()
   );
 }
+
 function parseMathPrompt(prompt = "") {
   const trimmed = String(prompt).trim();
 
@@ -43,6 +44,7 @@ export default function Flashcard({
   onSaveProgress,
   canSaveProgress,
   timeLimitSeconds = 8,
+  isPaused = false,
 }) {
   const [userAnswer, setUserAnswer] = React.useState("");
   const [feedback, setFeedback] = React.useState(null);
@@ -51,22 +53,30 @@ export default function Flashcard({
   const [showBack, setShowBack] = React.useState(false);
 
   const inputRef = React.useRef(null);
-  const tickTimeoutRef = React.useRef(null);
+  const intervalRef = React.useRef(null);
   const advanceTimeoutRef = React.useRef(null);
 
   const isLockedRef = React.useRef(false);
   const hasTimedOutRef = React.useRef(false);
 
-  const clearTimers = React.useCallback(() => {
-    if (tickTimeoutRef.current) {
-      clearTimeout(tickTimeoutRef.current);
-      tickTimeoutRef.current = null;
+  const clearCountdown = React.useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
+  }, []);
+
+  const clearAdvanceTimeout = React.useCallback(() => {
     if (advanceTimeoutRef.current) {
       clearTimeout(advanceTimeoutRef.current);
       advanceTimeoutRef.current = null;
     }
   }, []);
+
+  const clearAllTimers = React.useCallback(() => {
+    clearCountdown();
+    clearAdvanceTimeout();
+  }, [clearCountdown, clearAdvanceTimeout]);
 
   const finalizeCard = React.useCallback(
     ({ correct = false, timedOut = false, typedAnswer = "" }) => {
@@ -74,16 +84,23 @@ export default function Flashcard({
       if (isLockedRef.current) return;
 
       isLockedRef.current = true;
+
       if (timedOut) {
         hasTimedOutRef.current = true;
       }
 
-      clearTimers();
+      clearCountdown();
+      clearAdvanceTimeout();
+
       setIsLocked(true);
       setShowBack(true);
 
       setFeedback({
-        message: correct ? "Correct!" : `Oops! The answer was ${card.answer}`,
+        message: timedOut
+          ? `Time's up! The answer was ${card.answer}`
+          : correct
+          ? "Correct!"
+          : `Oops! The answer was ${card.answer}`,
         color: correct ? "green" : "red",
       });
 
@@ -98,7 +115,13 @@ export default function Flashcard({
         }
       }, 1000);
     },
-    [card, clearTimers, onSubmitAnswer, onTimedOut]
+    [
+      card,
+      clearCountdown,
+      clearAdvanceTimeout,
+      onSubmitAnswer,
+      onTimedOut,
+    ]
   );
 
   React.useEffect(() => {
@@ -111,59 +134,78 @@ export default function Flashcard({
     isLockedRef.current = false;
     hasTimedOutRef.current = false;
 
-    clearTimers();
+    clearAllTimers();
 
     requestAnimationFrame(() => {
       if (inputRef.current) {
         inputRef.current.focus();
-        inputRef.current.select();
+        inputRef.current.select?.();
       }
     });
 
     return () => {
-      clearTimers();
+      clearAllTimers();
     };
-  }, [card?.id, timeLimitSeconds, clearTimers]);
+  }, [card?.id, timeLimitSeconds, clearAllTimers]);
+
+  React.useEffect(() => {
+    if (!card) return;
+
+    if (isPaused) {
+      clearCountdown();
+      return;
+    }
+
+    if (isLocked) {
+      clearCountdown();
+      return;
+    }
+
+    clearCountdown();
+
+    intervalRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearCountdown();
+    };
+  }, [card?.id, isPaused, isLocked, clearCountdown]);
+
+  React.useEffect(() => {
+    if (isPaused) return;
+    if (isLocked) return;
+    if (timeLeft > 0) return;
+    if (hasTimedOutRef.current) return;
+
+    finalizeCard({
+      timedOut: true,
+      correct: false,
+    });
+  }, [timeLeft, isPaused, isLocked, finalizeCard]);
 
   React.useEffect(() => {
     if (!card) return;
     if (isSubmitting) return;
-    if (isLockedRef.current) return;
-    if (timeLeft <= 0) return;
+    if (isLocked) return;
+    if (isPaused) return;
     if (!inputRef.current) return;
 
-    if (!isLocked && !isSubmitting) {
-      inputRef.current.focus();
-      inputRef.current.select?.();
-      }
-
-    tickTimeoutRef.current = setTimeout(() => {
-      setTimeLeft((prev) => {
-        const next = prev - 1;
-
-        if (next <= 0 && !hasTimedOutRef.current && !isLockedRef.current) {
-          finalizeCard({ timedOut: true });
-          return 0;
-        }
-
-        return next;
-      });
-    }, 1000);
-
-    const parsedPrompt = parseMathPrompt(card?.prompt);
-    return () => {
-      if (tickTimeoutRef.current) {
-        clearTimeout(tickTimeoutRef.current);
-        tickTimeoutRef.current = null;
-      }
-    };
-  }, [card, isSubmitting, timeLeft, isLocked, finalizeCard]);
+    inputRef.current.focus();
+    inputRef.current.select?.();
+  }, [card?.id, isSubmitting, isLocked, isPaused]);
 
   function handleSubmit(e) {
     e.preventDefault();
 
     if (!card) return;
     if (isSubmitting || isLockedRef.current) return;
+    if (isPaused) return;
 
     const typed = userAnswer.trim();
     if (!typed) return;
@@ -184,82 +226,89 @@ export default function Flashcard({
       ? "flashcard--incorrect"
       : "";
 
-const parsedPrompt = parseMathPrompt(card?.prompt);
+  const parsedPrompt = parseMathPrompt(card?.prompt);
 
   return (
     <div className="flashcard-wrapper flashcard-page">
       <div className="flashcard-shell-wrap">
-  <div className={`flashcard-shell ${feedbackClass}`}>
-        <div className="flashcard-timer-wrap">
-          <div className={`flashcard-timer ${timeLeft <= 3 ? "flashcard-timer--urgent" : ""}`}>
-            ⏱ {Math.max(0, timeLeft)}
-          </div>
-        </div>
-
-        <div className={`flashcard-flip ${showBack ? "is-flipped" : ""}`}>
-          <div className="flashcard-face flashcard-front">
-  {parsedPrompt ? (
-  <div className="math-problem" aria-label={card?.prompt}>
-    <div className="math-row math-top-row">
-      <span className="math-number">{parsedPrompt.top}</span>
-    </div>
-
-    <div className="math-row math-bottom-row">
-      <span className="math-operator">{parsedPrompt.operator}</span>
-      <span className="math-number">{parsedPrompt.bottom}</span>
-    </div>
-
-    <div className="math-line" />
-  </div>
-) : (
-  <h2 className="flashcard-prompt">{card?.prompt}</h2>
-)}
-
-            <form onSubmit={handleSubmit} className="flashcard-form">
-              <input
-                ref={inputRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                autoComplete="off"
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                disabled={isSubmitting || isLocked}
-                placeholder="Type your answer"
-                className="flashcard-input"
-              />
-
-              <button
-                type="submit"
-                disabled={isSubmitting || isLocked}
-                className="flashcard-submit"
-              >
-                Submit
-              </button>
-            </form>
+        <div className={`flashcard-shell ${feedbackClass}`}>
+          <div className="flashcard-timer-wrap">
+            <div
+              className={`flashcard-timer ${
+                timeLeft <= 3 ? "flashcard-timer--urgent" : ""
+              }`}
+            >
+              ⏱ {Math.max(0, timeLeft)}
+            </div>
           </div>
 
-          <div className="flashcard-face flashcard-back">
-            {feedback && (
-              <>
-                <div
-                  className={`flashcard-feedback ${
-                    feedback.color === "green"
-                      ? "flashcard-feedback--correct"
-                      : "flashcard-feedback--incorrect"
-                  }`}
-                >
-                  {feedback.message}
+          <div className={`flashcard-flip ${showBack ? "is-flipped" : ""}`}>
+            <div className="flashcard-face flashcard-front">
+              {parsedPrompt ? (
+                <div className="math-problem" aria-label={card?.prompt}>
+                  <div className="math-row math-top-row">
+                    <span className="math-number">{parsedPrompt.top}</span>
+                  </div>
+
+                  <div className="math-row math-bottom-row">
+                    <span className="math-operator">
+                      {parsedPrompt.operator}
+                    </span>
+                    <span className="math-number">{parsedPrompt.bottom}</span>
+                  </div>
+
+                  <div className="math-line" />
                 </div>
+              ) : (
+                <h2 className="flashcard-prompt">{card?.prompt}</h2>
+              )}
 
-                <div className="flashcard-answer-label">Answer</div>
-                <div className="flashcard-answer-value">{card?.answer}</div>
-              </>
-            )}
+              <form onSubmit={handleSubmit} className="flashcard-form">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  disabled={isSubmitting || isLocked || isPaused}
+                  placeholder="Type your answer"
+                  className="flashcard-input"
+                />
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting || isLocked || isPaused}
+                  className="flashcard-submit"
+                >
+                  Submit
+                </button>
+              </form>
+            </div>
+
+            <div className="flashcard-face flashcard-back">
+              {feedback && (
+                <>
+                  <div
+                    className={`flashcard-feedback ${
+                      feedback.color === "green"
+                        ? "flashcard-feedback--correct"
+                        : "flashcard-feedback--incorrect"
+                    }`}
+                  >
+                    {feedback.message}
+                  </div>
+
+                  <div className="flashcard-answer-label">Answer</div>
+                  <div className="flashcard-answer-value">{card?.answer}</div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
-</div>
+
       <div className="flashcard-actions">
         <button
           onClick={onSaveProgress}
