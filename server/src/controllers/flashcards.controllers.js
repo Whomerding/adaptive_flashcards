@@ -285,6 +285,7 @@ export async function ensureChildDeck(req, res, next) {
 }
 
 export async function batchUpdateChildFactProgress(req, res, next) {
+  console.log("batch route hit on navigation", req.body);
   const parentId = req.user.parentId;
   const childId = Number(req.params.childId);
   const deckId = Number(req.params.deckId);

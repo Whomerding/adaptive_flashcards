@@ -130,6 +130,12 @@ export default function Flashcard({
     if (isSubmitting) return;
     if (isLockedRef.current) return;
     if (timeLeft <= 0) return;
+    if (!inputRef.current) return;
+
+    if (!isLocked && !isSubmitting) {
+      inputRef.current.focus();
+      inputRef.current.select?.();
+      }
 
     tickTimeoutRef.current = setTimeout(() => {
       setTimeLeft((prev) => {
@@ -151,7 +157,7 @@ export default function Flashcard({
         tickTimeoutRef.current = null;
       }
     };
-  }, [card, isSubmitting, timeLeft, finalizeCard]);
+  }, [card, isSubmitting, timeLeft, isLocked, finalizeCard]);
 
   function handleSubmit(e) {
     e.preventDefault();

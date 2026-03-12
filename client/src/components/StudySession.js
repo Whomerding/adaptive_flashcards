@@ -1,7 +1,8 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
 import api from "../api/axiosConfig";
 import Flashcard from "./Flashcard";
-
+import { apiFetch } from "../utils/api";
 export default function StudySession({
   session,
   childId,
@@ -9,6 +10,13 @@ export default function StudySession({
   isLoading,
   error,
 }) {
+  /*
+    UI state:
+    - activeCards: the current shuffled pool shown to the child
+    - reserveCards: ordered cards waiting to be pulled into active
+    - currentCardIndex: which active card is currently displayed
+    - pendingResults: mirrored UI copy of unsaved results
+  */
   const [activeCards, setActiveCards] = React.useState([]);
   const [reserveCards, setReserveCards] = React.useState([]);
   const [currentCardIndex, setCurrentCardIndex] = React.useState(0);
@@ -18,21 +26,42 @@ export default function StudySession({
   const [submitError, setSubmitError] = React.useState("");
   const [cardStartedAt, setCardStartedAt] = React.useState(null);
 
+  /*
+    Refs:
+    - pendingResultsRef is the true source of truth for batching.
+      We use a ref because state updates are async and batching logic
+      needs the newest value immediately.
+    - isFlushingRef prevents overlapping save calls.
+    - prevPathRef helps detect React-router navigation changes.
+  */
   const pendingResultsRef = React.useRef([]);
   const isFlushingRef = React.useRef(false);
+
+  const location = useLocation();
+  const prevPathRef = React.useRef(location.pathname);
 
   const BATCH_SIZE = 20;
   const ACTIVE_TARGET = session?.sessionConfig?.activeTarget ?? 12;
 
+  /*
+    Shuffle helper:
+    We shuffle only the active pool.
+    Reserve stays ordered so progression still follows deck order.
+  */
   function shuffle(array) {
     const arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
+    for (let i = arr.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr;
   }
 
+  /*
+    When a fresh session arrives from the backend:
+    - first N cards become active and get shuffled
+    - the rest go into reserve in order
+  */
   React.useEffect(() => {
     if (!session) return;
 
@@ -43,19 +72,29 @@ export default function StudySession({
     setActiveCards(initialActive);
     setReserveCards(initialReserve);
     setCurrentCardIndex(0);
+
     setPendingResults([]);
     pendingResultsRef.current = [];
+
     setSessionFinished(false);
     setSubmitError("");
     setCardStartedAt(Date.now());
   }, [session, ACTIVE_TARGET]);
 
+  /*
+    Keep the ref synchronized with state for UI-driven reads.
+    The ref is what saving logic uses.
+  */
   React.useEffect(() => {
     pendingResultsRef.current = pendingResults;
   }, [pendingResults]);
 
   const currentCard = activeCards[currentCardIndex] ?? null;
 
+  /*
+    Main API save function.
+    Uses normal axios for standard save flows.
+  */
   async function flushBatch(resultsToSend) {
     if (!resultsToSend.length) return;
     if (isFlushingRef.current) return;
@@ -82,39 +121,52 @@ export default function StudySession({
     }
   }
 
+  /*
+    Flush whatever is currently pending.
+    This is used by:
+    - manual save
+    - autosave
+    - session completion
+  */
   async function flushPendingResults() {
     const resultsToSend = [...pendingResultsRef.current];
-
-    console.log("flushPendingResults called");
-    console.log("resultsToSend:", resultsToSend);
-
     if (!resultsToSend.length) return;
 
     await flushBatch(resultsToSend);
+
     pendingResultsRef.current = [];
     setPendingResults([]);
   }
 
-  function flushPendingResultsWithBeacon() {
-    const resultsToSend = [...pendingResultsRef.current];
-    if (!resultsToSend.length) return;
+  /*
+    Route/unload-safe flush.
+    We use fetch + keepalive so React-router redirects and page exits
+    have a better chance to persist the data.
+  */
 
-    try {
-      const url = `/api/children/${childId}/decks/${deckId}/batch-progress`;
-      const payload = JSON.stringify({ results: resultsToSend });
-      const blob = new Blob([payload], { type: "application/json" });
 
-      const sent = navigator.sendBeacon(url, blob);
+function flushPendingResultsOnLeave() {
+  console.log(`Attempting to flush pending results on leave for child ${childId} deck ${deckId}...`);
+  const resultsToSend = [...pendingResultsRef.current];
+  if (!resultsToSend.length) return;
 
-      if (sent) {
-        pendingResultsRef.current = [];
-        setPendingResults([]);
-      }
-    } catch (err) {
-      console.error("sendBeacon flush failed:", err);
-    }
-  }
+  console.log("Flushing pending results on leave:", resultsToSend);
 
+  apiFetch(`/api/children/${childId}/decks/${deckId}/batch-progress`, {
+    method: "POST",
+    keepalive: true,
+    body: JSON.stringify({ results: resultsToSend }),
+  }).catch((err) => {
+    console.error("Failed to flush on leave:", err);
+  });
+
+  pendingResultsRef.current = [];
+  setPendingResults([]);
+}
+  /*
+    When a mastered card is removed, refill active from reserve.
+    Active is reshuffled after refill so the new card is blended in.
+  */
   function refillActiveCards(updatedActive, updatedReserve) {
     const nextActive = [...updatedActive];
     const nextReserve = [...updatedReserve];
@@ -129,11 +181,11 @@ export default function StudySession({
     };
   }
 
+  /*
+    Auto-flush when batch size is reached.
+  */
   async function maybeFlushLargeBatch() {
     const resultsToSend = [...pendingResultsRef.current];
-
-    console.log("maybeFlushLargeBatch called with:", resultsToSend);
-
     if (resultsToSend.length < BATCH_SIZE) return;
 
     await flushBatch(resultsToSend);
@@ -141,6 +193,13 @@ export default function StudySession({
     setPendingResults([]);
   }
 
+  /*
+    Main card result handler:
+    - calculates local learning stats
+    - updates UI immediately
+    - appends to pending batch
+    - optionally removes mastered cards and refills from reserve
+  */
   async function handleCardResult({
     factId,
     correct,
@@ -182,13 +241,8 @@ export default function StudySession({
       responseMs,
     };
 
-    console.log("handleCardResult fired");
-    console.log("new result:", result);
-
     const nextPending = [...pendingResultsRef.current, result];
     pendingResultsRef.current = nextPending;
-
-    console.log("nextPending:", nextPending);
 
     let nextActive = [...activeCards];
     let nextReserve = [...reserveCards];
@@ -215,6 +269,11 @@ export default function StudySession({
         nextIndex = 0;
       }
     } else {
+      /*
+        For non-mastered cards:
+        - move the answered card to the back
+        - do NOT reshuffle every single answer, which can create jumpy UX
+      */
       nextActive.splice(currentCardIndex, 1);
       nextActive.push(updatedAnsweredCard);
 
@@ -238,7 +297,7 @@ export default function StudySession({
         await flushPendingResults();
         setSessionFinished(true);
       } catch (err) {
-        // keep pending results if upload fails
+        // leave pending results intact if save fails
       }
       return;
     }
@@ -246,36 +305,68 @@ export default function StudySession({
     try {
       await maybeFlushLargeBatch();
     } catch (err) {
-      // keep pending results if upload fails
+      // leave pending results intact if save fails
     }
   }
 
+  /*
+    Real browser exits:
+    - refresh
+    - tab close
+    - full page navigation
+  */
   React.useEffect(() => {
     function handlePageHide() {
-      flushPendingResultsWithBeacon();
+      flushPendingResultsOnLeave();
+    }
+
+    function handleBeforeUnload() {
+      flushPendingResultsOnLeave();
     }
 
     function handleVisibilityChange() {
       if (document.visibilityState === "hidden") {
-        flushPendingResultsWithBeacon();
+        flushPendingResultsOnLeave();
       }
     }
 
-    function handleBeforeUnload() {
-      flushPendingResultsWithBeacon();
-    }
-
     window.addEventListener("pagehide", handlePageHide);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.removeEventListener("pagehide", handlePageHide);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [childId, deckId]);
 
+  /*
+    React-router SPA navigation:
+    beforeunload/pagehide usually won't fire here,
+    so we flush when the pathname changes.
+  */
+  React.useEffect(() => {
+    if (prevPathRef.current !== location.pathname) {
+      flushPendingResultsOnLeave();
+    }
+
+    prevPathRef.current = location.pathname;
+  }, [location.pathname, childId, deckId]);
+
+  /*
+    Also flush on unmount just in case the study component is removed
+    without a full browser unload.
+  */
+  React.useEffect(() => {
+    return () => {
+      flushPendingResultsOnLeave();
+    };
+  }, [childId, deckId]);
+
+  /*
+    Autosave every 30 seconds while there are unsaved results.
+  */
   React.useEffect(() => {
     if (!pendingResults.length) return;
 
