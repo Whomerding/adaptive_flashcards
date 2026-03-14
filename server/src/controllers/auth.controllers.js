@@ -5,6 +5,8 @@ import jwt from "jsonwebtoken";
 import { pool } from "../db.js";
 import { cookieOptions } from "../utils/cookies.js";
 import { sendPasswordResetEmail } from "../utils/mailer.js";
+import passport from "passport";
+import {Strategy as GoogleStrategy} from "passport-google-oauth20"; 
 
 const saltRounds = 10;
 
@@ -248,13 +250,13 @@ export async function requestPasswordReset(req, res, next) {
     await pool.query(
       `DELETE FROM password_reset_tokens
        WHERE parent_id = $1`,
-      [parent.parent_id]
+      [parent.id]
     );
 
     await pool.query(
       `INSERT INTO password_reset_tokens (parent_id, token_hash, expires_at)
        VALUES ($1, $2, $3)`,
-      [parent.parent_id, tokenHash, expiresAt]
+      [parent.id, tokenHash, expiresAt]
     );
 
     const resetUrl =
@@ -282,7 +284,7 @@ export async function resetPassword(req, res, next) {
 
   if (!newPassword || newPassword.length < 8) {
     return res.status(400).json({
-      error: "Password must be at least 8 characters."
+      error: "Password must be at least 8 characters.",
     });
   }
 
@@ -291,16 +293,13 @@ export async function resetPassword(req, res, next) {
   try {
     await client.query("BEGIN");
 
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
     const tokenResult = await client.query(
-      `SELECT parent_id
+      `SELECT id, parent_id
        FROM password_reset_tokens
        WHERE token_hash = $1
-       AND expires_at > NOW()
+         AND expires_at > NOW()
        LIMIT 1`,
       [tokenHash]
     );
@@ -308,34 +307,40 @@ export async function resetPassword(req, res, next) {
     if (tokenResult.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({
-        error: "This reset link is invalid or expired."
+        error: "This reset link is invalid or expired.",
       });
     }
 
+    const resetTokenId = tokenResult.rows[0].id;
     const parentId = tokenResult.rows[0].parent_id;
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
-    await client.query(
+    const updateResult = await client.query(
       `UPDATE parents
        SET password_hash = $1
-       WHERE parent_id = $2`,
+       WHERE id = $2`,
       [passwordHash, parentId]
     );
 
-    // delete token after use
+    if (updateResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        error: "Parent account not found.",
+      });
+    }
+
     await client.query(
       `DELETE FROM password_reset_tokens
-       WHERE parent_id = $1`,
-      [parentId]
+       WHERE id = $1`,
+      [resetTokenId]
     );
 
     await client.query("COMMIT");
 
     return res.status(200).json({
-      message: "Password reset successful."
+      message: "Password reset successful.",
     });
-
   } catch (err) {
     await client.query("ROLLBACK");
     next(err);
@@ -343,3 +348,88 @@ export async function resetPassword(req, res, next) {
     client.release();
   }
 }
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const googleId = profile.id;
+        const email = (profile.emails?.[0]?.value || "").trim().toLowerCase();
+
+        if (!email) {
+          return done(new Error("Google account did not provide an email."));
+        }
+
+        const client = await pool.connect();
+
+        try {
+          await client.query("BEGIN");
+
+          // 1) Already linked?
+          const linked = await client.query(
+            `SELECT p.id, p.email
+             FROM parent_oauth_accounts poa
+             JOIN parents p ON p.id = poa.parent_id
+             WHERE poa.provider = $1
+               AND poa.provider_user_id = $2
+             LIMIT 1`,
+            ["google", googleId]
+          );
+
+          if (linked.rows.length > 0) {
+            await client.query("COMMIT");
+            return done(null, linked.rows[0]);
+          }
+
+          // 2) Existing parent with same email?
+          const existingParent = await client.query(
+            `SELECT id, email
+             FROM parents
+             WHERE email = $1
+             LIMIT 1`,
+            [email]
+          );
+
+          let parent;
+
+          if (existingParent.rows.length > 0) {
+            parent = existingParent.rows[0];
+          } else {
+            // 3) Create new parent
+            const createdParent = await client.query(
+              `INSERT INTO parents (email, password_hash)
+               VALUES ($1, NULL)
+               RETURNING id, email`,
+              [email]
+            );
+            parent = createdParent.rows[0];
+          }
+
+          // Link Google account
+          await client.query(
+            `INSERT INTO parent_oauth_accounts
+               (parent_id, provider, provider_user_id, email)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (provider, provider_user_id) DO NOTHING`,
+            [parent.id, "google", googleId, email]
+          );
+
+          await client.query("COMMIT");
+          return done(null, parent);
+        } catch (err) {
+          await client.query("ROLLBACK");
+          return done(err);
+        } finally {
+          client.release();
+        }
+      } catch (err) {
+        return done(err);
+      }
+    }
+  )
+);
