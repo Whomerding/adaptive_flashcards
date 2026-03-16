@@ -1,6 +1,6 @@
 export default function Footer() {
   return (
- <footer className="bg-light border-top mt-5">
+ <footer className="bg-light border-top">
   <div className="container py-4 text-center">
     <p className="mb-1">
       © {new Date().getFullYear()} True North Productions

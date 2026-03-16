@@ -68,9 +68,11 @@ console.log("Profile data:", data);
         <div className="col-md-6">
           <h1 className="mb-3">Complete Your Profile</h1>
           <p className="text-muted">
-            Please add your date of birth to finish setting up your account.
-          </p>
-
+           Parent/Guardian Date of Birth Required
+           </p>
+           <p>
+To finish setting up your account, please enter your own date of birth (not your child’s).
+</p>
           <form onSubmit={handleSubmit}>
             <BirthdayField value={birthday} onChange={setBirthday} error={error} />
 

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import useAuth from "../auth/useAuth";
 import "../styles/App.css";
-
+import "../styles/login.css";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -44,12 +44,15 @@ console.log("API URL:", process.env.REACT_APP_API_URL);
        
         <button type="submit" className="btn btn-primary w-100">Sign in</button>
       </form>
-      <button
-  type="button"
-  onClick={() => {
-    window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`;
-  }}
+   <button
+  className="google-btn"
+  onClick={() => window.location.href = "http://localhost:5050/auth/google"}
 >
+  <img
+    src="/logos/google_logo.svg"
+    alt="Google"
+    className="google-icon"
+  />
   Continue with Google
 </button>
 

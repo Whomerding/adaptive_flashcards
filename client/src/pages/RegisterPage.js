@@ -66,7 +66,17 @@ export default function RegisterPage() {
           Register
         </button>
       </form>
-
+   <button
+  className="google-btn"
+  onClick={() => window.location.href = "http://localhost:5050/auth/google"}
+>
+  <img
+    src="/logos/google_logo.svg"
+    alt="Google"
+    className="google-icon"
+  />
+  Continue with Google
+</button>
       <p className="text-center mt-3 mb-0">
         Already have an account? <Link to="/login">Login</Link>
       </p>
