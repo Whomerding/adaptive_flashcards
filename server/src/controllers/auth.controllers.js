@@ -31,7 +31,7 @@ export async function me(req, res, next) {
   try {
     const { parentId } = req.user;
 
-    const r = await pool.query("SELECT id, email FROM parents WHERE id = $1", [
+    const r = await pool.query("SELECT id, email, birth_date FROM parents WHERE id = $1", [
       parentId,
     ]);
 
@@ -48,17 +48,34 @@ export async function register(req, res, next) {
   try {
     const email = (req.body.email || "").trim().toLowerCase();
     const password = req.body.password || "";
+    const birth_date = req.body.birth_date || null;
 
     if (!email) return res.status(400).json({ error: "Email is required" });
+
     if (password.length < 8) {
       return res
         .status(400)
         .json({ error: "Password must be at least 8 characters" });
     }
 
-    const existing = await pool.query("SELECT id FROM parents WHERE email=$1", [
-      email,
-    ]);
+    if (!birth_date) {
+      return res.status(400).json({ error: "Birth date is required" });
+    }
+
+    const parsedBirthDate = new Date(birth_date);
+    if (isNaN(parsedBirthDate.getTime())) {
+      return res.status(400).json({ error: "Invalid birth date" });
+    }
+
+    if (parsedBirthDate > new Date()) {
+      return res.status(400).json({ error: "Birth date cannot be in the future" });
+    }
+
+    const existing = await pool.query(
+      "SELECT id FROM parents WHERE email=$1",
+      [email]
+    );
+
     if (existing.rows.length) {
       return res.status(409).json({ error: "Account already exists" });
     }
@@ -66,8 +83,10 @@ export async function register(req, res, next) {
     const password_hash = await bcrypt.hash(password, saltRounds);
 
     const created = await pool.query(
-      "INSERT INTO parents (email, password_hash) VALUES ($1, $2) RETURNING id, email",
-      [email, password_hash]
+      `INSERT INTO parents (email, password_hash, birth_date)
+       VALUES ($1, $2, $3)
+       RETURNING id, email, birth_date`,
+      [email, password_hash, birth_date]
     );
 
     const parent = created.rows[0];
@@ -113,12 +132,16 @@ export async function login(req, res, next) {
     }
 
     const result = await pool.query(
-      "SELECT id, email, password_hash FROM parents WHERE email=$1",
+      "SELECT id, email, password_hash, birth_date FROM parents WHERE email=$1",
       [email]
     );
 
     const parent = result.rows[0];
     if (!parent) return res.status(401).json({ error: "Invalid credentials" });
+
+    if (!parent.password_hash) {
+    return res.status(401).json({ error: "Use Google sign-in for this account" });
+}
 
     const ok = await bcrypt.compare(password, parent.password_hash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
@@ -145,7 +168,7 @@ export async function login(req, res, next) {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    res.json({ parent: { id: parent.id, email: parent.email } });
+    res.json({ parent: { id: parent.id, email: parent.email, birth_date: parent.birth_date } });
   } catch (err) {
     next(err);
   }
@@ -192,20 +215,6 @@ export function refresh(req, res) {
 }
 
 
-
-
-export function getCsrfToken(req, res) {
-  const isProd = process.env.NODE_ENV === "production";
-  const csrf = crypto.randomBytes(32).toString("hex");
-
-  res.cookie("csrf_token", csrf, {
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    path: "/",
-  });
-
-  res.json({ csrfToken: csrf });
-}
 
 
 
@@ -372,7 +381,7 @@ passport.use(
 
           // 1) Already linked?
           const linked = await client.query(
-            `SELECT p.id, p.email
+            `SELECT p.id, p.email, p.birth_date
              FROM parent_oauth_accounts poa
              JOIN parents p ON p.id = poa.parent_id
              WHERE poa.provider = $1
@@ -388,7 +397,7 @@ passport.use(
 
           // 2) Existing parent with same email?
           const existingParent = await client.query(
-            `SELECT id, email
+            `SELECT id, email, birth_date
              FROM parents
              WHERE email = $1
              LIMIT 1`,
@@ -402,9 +411,9 @@ passport.use(
           } else {
             // 3) Create new parent
             const createdParent = await client.query(
-              `INSERT INTO parents (email, password_hash)
-               VALUES ($1, NULL)
-               RETURNING id, email`,
+              `INSERT INTO parents (email, password_hash, birth_date)
+               VALUES ($1, NULL, NULL)
+               RETURNING id, email, birth_date`,
               [email]
             );
             parent = createdParent.rows[0];
@@ -433,3 +442,43 @@ passport.use(
     }
   )
 );
+
+// PATCH /auth/me/birth-date (requireAuth)
+export async function updateBirthDate(req, res, next) {
+  console.log("updateBirthDate called with body:", req.body);
+  try {
+    const { parentId } = req.user;
+    const birth_date = req.body.birth_date || null;
+
+    if (!birth_date) {
+      return res.status(400).json({ error: "Birth date is required" });
+    }
+
+    const parsedBirthDate = new Date(birth_date);
+    if (isNaN(parsedBirthDate.getTime())) {
+      return res.status(400).json({ error: "Invalid birth date" });
+    }
+
+    if (parsedBirthDate > new Date()) {
+      return res
+        .status(400)
+        .json({ error: "Birth date cannot be in the future" });
+    }
+
+    const updated = await pool.query(
+      `UPDATE parents
+       SET birth_date = $1
+       WHERE id = $2
+       RETURNING id, email, birth_date`,
+      [birth_date, parentId]
+    );
+
+    if (!updated.rows.length) {
+      return res.status(404).json({ error: "Parent not found" });
+    }
+
+    res.json({ parent: updated.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+}

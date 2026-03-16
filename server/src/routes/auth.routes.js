@@ -1,4 +1,4 @@
-import express from "express";
+
 import { Router } from "express";
 import passport from "passport";
 import { cookieOptions } from "../utils/cookies.js";
@@ -20,6 +20,7 @@ import {
   me,
   getCsrf,
   refresh,
+  updateBirthDate,
 } from "../controllers/auth.controllers.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireCsrf } from "../middleware/csrf.js";
@@ -34,9 +35,10 @@ router.post("/refresh", requireCsrf, refresh);
 router.get("/csrf", getCsrf);
 router.post("/forgot-password", passwordResetRequestLimiter, requestPasswordReset);
 router.post("/reset-password", passwordResetConfirmLimiter, resetPassword);
-
+router.patch("/me/birth_date", requireAuth, updateBirthDate);
 // Example: an auth-only endpoint to verify cookie/jwt
 router.get("/me", requireAuth, me);
+
 
 // Google OAuth routes
 
@@ -78,7 +80,11 @@ router.get(
       ...cookieOptions(),
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
-
+    console.log("OAuth parent:", parent);
+console.log("OAuth birth_date:", parent.birth_date);
+    if (!parent.birth_date) {
+      return res.redirect(`${process.env.CLIENT_URL}/complete-profile`);
+    }
     return res.redirect(`${process.env.CLIENT_URL}/dashboard`);
   }
 );

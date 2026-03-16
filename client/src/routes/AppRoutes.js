@@ -10,6 +10,7 @@ import DashboardPage from "../pages/Dashboard";
 import ChildDeckPage from "../pages/ChildDeckPage";
 import LandingPage from "../pages/LandingPage";
 import ForgotPassword from "../pages/ForgotPassword";
+import CompleteProfile from "../pages/CompleteProfile";
 
 export default function AppRoutes() {
   return (
@@ -24,6 +25,7 @@ export default function AppRoutes() {
       </Route>
 
       <Route element={<RequireAuth />}>
+         <Route path="/complete-profile" element={<CompleteProfile />} />
         <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/children/:childId/decks/:deckId" element={<ChildDeckPage />} />
       </Route>

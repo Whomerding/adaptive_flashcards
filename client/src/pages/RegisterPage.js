@@ -9,13 +9,14 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [birthday, setBirthday] = useState("");
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
 
     try {
-      await register(email, password);
+      await register(email, password, birthday);
       navigate("/", { replace: true });
     } catch (err) {
       console.error(err);
@@ -48,7 +49,17 @@ export default function RegisterPage() {
           autoComplete="new-password"
           className="form-control mb-3"
         />
-
+         <label htmlFor="birth_date" className="form-label">
+            Birthday
+          </label>
+          <input
+            id="birth_date"
+            type="date"
+            value={birthday}
+            required
+            onChange={(e) => setBirthday(e.target.value)}
+            className="form-control mb-3"
+          />
         {error && <p className="text-danger">{error}</p>}
 
         <button type="submit" className="btn btn-primary w-100">

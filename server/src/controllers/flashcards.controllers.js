@@ -63,33 +63,59 @@ export async function deleteChild(req, res, next) {
   try {
     const parentId = req.user.parentId;
     const childId = Number(req.params.childId);
+    const birth_date = req.body.birth_date || null;
 
     if (!Number.isInteger(childId) || childId <= 0) {
-      return res.status(400).json({ error: "Invalid childId" });
+      return res.status(400).json({ error: "Invalid child id" });
     }
 
-    const client = await pool.connect();
-
-    try {
-      await client.query("BEGIN");
-
-      await assertChildOwnership(client, childId, parentId);
-
-      await client.query(
-        `DELETE FROM children
-         WHERE id = $1`,
-        [childId]
-      );
-
-      await client.query("COMMIT");
-
-      return res.json({ success: true, childId });
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
+    if (!birth_date) {
+      return res.status(400).json({ error: "Birth date is required" });
     }
+
+    const parsedBirthDate = new Date(birth_date);
+    if (isNaN(parsedBirthDate.getTime())) {
+      return res.status(400).json({ error: "Invalid birth date" });
+    }
+
+    const authCheck = await pool.query(
+      `
+      SELECT 1
+      FROM parents
+      WHERE id = $1
+        AND birth_date = $2
+      `,
+      [parentId, birth_date]
+    );
+
+    if (!authCheck.rows.length) {
+      return res.status(403).json({ error: "Birthday verification failed" });
+    }
+
+    const ownershipCheck = await pool.query(
+      `
+      SELECT id
+      FROM children
+      WHERE id = $1
+        AND parent_id = $2
+      `,
+      [childId, parentId]
+    );
+
+    if (!ownershipCheck.rows.length) {
+      return res.status(404).json({ error: "Child not found" });
+    }
+
+    await pool.query(
+      `
+      DELETE FROM children
+      WHERE id = $1
+        AND parent_id = $2
+      `,
+      [childId, parentId]
+    );
+
+    return res.status(200).json({ success: true });
   } catch (err) {
     next(err);
   }

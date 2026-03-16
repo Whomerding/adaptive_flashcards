@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [deckId, setDeckId] = React.useState(null);
   const [deck, setDeck] = React.useState(null);
   const [isDeckLoading, setDeckLoading] = React.useState(false);
+  const [birthDate, setBirthDate] = React.useState("");
   
     async function fetchChildren() {
         try {
@@ -63,15 +64,20 @@ async function chooseDeck(deckId, childId) {
   }
 }
 
- async function deleteChild(childId) {
-    try {
-      await api.delete(`/api/children/${childId}`);
-      setChildren((prev) => prev.filter((child) => child.id !== childId));
-    } catch (err) {
-      console.error("Failed to delete child:", err);
-      setError("Failed to delete child");
-    }
+async function deleteChild(childId, birthDate) {
+  try {
+    await api.delete(`/api/children/${childId}`, {
+      data: { birth_date: birthDate },
+    });
+
+    setChildren((prev) => prev.filter((child) => child.id !== childId));
+    setError("");
+  } catch (err) {
+    console.error("Failed to delete child:", err);
+    setError(err.response?.data?.error || "Failed to delete child");
+    throw err;
   }
+}
 
 
   return (
@@ -81,7 +87,7 @@ async function chooseDeck(deckId, childId) {
     <div>
       
       <div className="container py-4">
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-5">
+        <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-5">
         {children.map((child) => (
           <Child key={child.id} id ={child.id} loading = {loading} child={child} chooseDeck={chooseDeck} deleteChild={deleteChild} />
         ))}

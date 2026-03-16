@@ -18,10 +18,14 @@ export async function login(email, password) {
   return res.data; // { parent: {...} }
 }
 
-export async function register(email, password) {
+export async function register(email, password, birthday) {
   await initCsrf();
-  const res = await api.post("/auth/register", { email, password });
-  return res.data; // { parent: {...} }
+  const res = await api.post("/auth/register", {
+    email,
+    password,
+    birth_date: birthday   // 👈 change here
+  });
+  return res.data;
 }
 
 export async function logout() {

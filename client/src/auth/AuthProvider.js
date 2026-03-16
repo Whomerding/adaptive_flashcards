@@ -30,8 +30,8 @@ async function login(email, password) {
   return data;
 }
 
-async function register(email, password) {
-  await authApi.register(email, password);
+async function register(email, password, birth_date) {
+  await authApi.register(email, password, birth_date);
 
   const data = await authApi.bootstrapAuth();
   setParent(data?.parent ?? null);
