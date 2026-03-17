@@ -134,6 +134,7 @@ export async function getChildDeckSession(req, res, next) {
 
   const ACTIVE_TARGET = 12;
   const REVIEW_TARGET = 2;
+  const REVIEW_MODE_THRESHOLD = 10;
 
   if (
     !Number.isInteger(childId) ||
@@ -173,6 +174,7 @@ export async function getChildDeckSession(req, res, next) {
           sessionConfig: {
             activeTarget: ACTIVE_TARGET,
             reviewTarget: REVIEW_TARGET,
+            mode: "none",
           },
         });
       }
@@ -203,12 +205,29 @@ export async function getChildDeckSession(req, res, next) {
 
       const allFacts = factsResult.rows;
 
+      if (allFacts.length === 0) {
+        return res.json({
+          deck: deckState.rows[0],
+          cards: [],
+          sessionConfig: {
+            activeTarget: ACTIVE_TARGET,
+            reviewTarget: REVIEW_TARGET,
+            mode: "empty",
+          },
+        });
+      }
+
       const reviewCards = [];
       const learningCards = [];
       const newCards = [];
+      const activeFacts = [];
 
       for (const fact of allFacts) {
         const status = fact.status ?? "new";
+
+        if (fact.is_active !== false) {
+          activeFacts.push(fact);
+        }
 
         if (status === "mastered") {
           reviewCards.push(fact);
@@ -219,7 +238,6 @@ export async function getChildDeckSession(req, res, next) {
         }
       }
 
-      // Oldest mastered cards get picked first for review
       reviewCards.sort((a, b) => {
         const aTime = a.last_seen_at ? new Date(a.last_seen_at).getTime() : 0;
         const bTime = b.last_seen_at ? new Date(b.last_seen_at).getTime() : 0;
@@ -228,17 +246,32 @@ export async function getChildDeckSession(req, res, next) {
 
       const selectedReviews = reviewCards.slice(0, REVIEW_TARGET);
 
-      const cards = [
-        ...selectedReviews,
-        ...learningCards,
-        ...newCards,
-      ];
+      const mode =
+        activeFacts.length < REVIEW_MODE_THRESHOLD ? "review" : "adaptive";
+
+      const cards =
+        mode === "review"
+          ? allFacts
+          : [...selectedReviews, ...learningCards, ...newCards];
+
+      console.log("SESSION RESPONSE DEBUG", {
+        deckId,
+        childId,
+        allFactsCount: allFacts.length,
+        activeFactsCount: activeFacts.length,
+        reviewCount: selectedReviews.length,
+        learningCount: learningCards.length,
+        newCount: newCards.length,
+        returnedCardsCount: cards.length,
+        mode,
+      });
 
       return res.json({
         deck: deckState.rows[0],
         sessionConfig: {
           activeTarget: ACTIVE_TARGET,
           reviewTarget: REVIEW_TARGET,
+          mode,
         },
         cards,
       });
@@ -429,7 +462,11 @@ if (timedOut) {
 }
 
 // Master after 3 correct total, not 3 in a row
-const isMastered = newTimesCorrect >= 3;
+// const isMastered = newTimesCorrect >= 3;
+
+
+// Mastered if they have a streak of 3 correct, even if they got some wrong along the way
+const isMastered = newStreakCorrect >= 3;
 
 const newStatus = isMastered
   ? "mastered"

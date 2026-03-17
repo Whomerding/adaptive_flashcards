@@ -51,28 +51,36 @@ export default function StudySession({
   }
 
   React.useEffect(() => {
-    if (!session) return;
+  if (!session) return;
 
-    const orderedCards = session.cards ?? [];
+  const mode = session.sessionConfig?.mode ?? "adaptive";
+  const orderedCards = Array.isArray(session.cards) ? session.cards : [];
+
+  if (mode === "review") {
+    setActiveCards(shuffle(orderedCards));
+    setReserveCards([]);
+  } else {
     const initialActive = shuffle(orderedCards.slice(0, ACTIVE_TARGET));
     const initialReserve = orderedCards.slice(ACTIVE_TARGET);
 
     setActiveCards(initialActive);
     setReserveCards(initialReserve);
-    setCurrentCardIndex(0);
+  }
 
-    setPendingResults([]);
-    pendingResultsRef.current = [];
+  setCurrentCardIndex(0);
 
-    setSessionFinished(false);
-    setSubmitError("");
-    setCardStartedAt(Date.now());
-    setShowInactivityPrompt(false);
-    setIsPaused(false);
+  setPendingResults([]);
+  pendingResultsRef.current = [];
 
-    sessionEndedRef.current = false;
-    consecutiveTimeoutsRef.current = 0;
-  }, [session, ACTIVE_TARGET]);
+  setSessionFinished(false);
+  setSubmitError("");
+  setCardStartedAt(Date.now());
+  setShowInactivityPrompt(false);
+  setIsPaused(false);
+
+  sessionEndedRef.current = false;
+  consecutiveTimeoutsRef.current = 0;
+}, [session, ACTIVE_TARGET]);
 
   React.useEffect(() => {
     pendingResultsRef.current = pendingResults;
@@ -237,7 +245,7 @@ export default function StudySession({
     const currentTimesSeen = Number(answeredCard.times_seen ?? 0);
     const currentTimesCorrect = Number(answeredCard.times_correct ?? 0);
     const currentStreakCorrect = Number(answeredCard.streak_correct ?? 0);
-
+    const mode = session?.sessionConfig?.mode ?? "adaptive";
     const updatedTimesSeen = currentTimesSeen + 1;
     const updatedTimesCorrect = currentTimesCorrect + (correct ? 1 : 0);
 
@@ -285,26 +293,35 @@ export default function StudySession({
       is_active: !mastered,
     };
 
-    if (mastered) {
-      nextActive = nextActive.filter((card) => card.id !== factId);
+    if (mode === "review") {
+  nextActive.splice(currentCardIndex, 1);
+  nextActive.push(updatedAnsweredCard);
 
-      const refill = refillActiveCards(nextActive, nextReserve);
-      nextActive = refill.active;
-      nextReserve = refill.reserve;
+  if (currentCardIndex >= nextActive.length) {
+    nextIndex = 0;
+  } else {
+    nextIndex = currentCardIndex;
+  }
+} else if (mastered) {
+  nextActive = nextActive.filter((card) => card.id !== factId);
 
-      if (nextIndex >= nextActive.length) {
-        nextIndex = 0;
-      }
-    } else {
-      nextActive.splice(currentCardIndex, 1);
-      nextActive.push(updatedAnsweredCard);
+  const refill = refillActiveCards(nextActive, nextReserve);
+  nextActive = refill.active;
+  nextReserve = refill.reserve;
 
-      if (currentCardIndex >= nextActive.length) {
-        nextIndex = 0;
-      } else {
-        nextIndex = currentCardIndex;
-      }
-    }
+  if (nextIndex >= nextActive.length) {
+    nextIndex = 0;
+  }
+} else {
+  nextActive.splice(currentCardIndex, 1);
+  nextActive.push(updatedAnsweredCard);
+
+  if (currentCardIndex >= nextActive.length) {
+    nextIndex = 0;
+  } else {
+    nextIndex = currentCardIndex;
+  }
+}
 
     const noCardsLeft = nextActive.length === 0;
 

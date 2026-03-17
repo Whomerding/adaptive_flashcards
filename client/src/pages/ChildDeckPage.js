@@ -21,7 +21,7 @@ export default function ChildDeckPage() {
     async function getChildDeckSession(deckId, childId) {
       setDeckLoading(true);
       setError("");
-
+console.log(`Fetching session for childId=${childId}, deckId=${deckId}`);
       try {
         let res = await api.get(`/api/children/${childId}/decks/${deckId}/session`);
         console.log("API response for deck session:", res.data);
