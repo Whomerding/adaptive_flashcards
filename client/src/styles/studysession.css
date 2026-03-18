@@ -1,0 +1,166 @@
+/* Container */
+.study-session-container {
+    position: relative;
+}
+
+/* =========================
+   INACTIVITY MODAL
+========================= */
+
+.inactivity-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.inactivity-modal {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.inactivity-button {
+    margin-top: 1rem;
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    background-color: #4c6ef5;
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.inactivity-button:hover {
+    background-color: #364fc7;
+}
+
+/* =========================
+   MASTERY POPUP (FUN PART)
+========================= */
+
+.mastery-popup {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%) scale(0.8);
+    background: #fff8cc;
+    border: 3px solid #ffd43b;
+    border-radius: 16px;
+    padding: 1.2rem 1.8rem;
+    font-size: 2.2rem;
+    font-weight: 700;
+    z-index: 10000;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    text-align: center;
+
+    animation:
+        mastery-pop 0.35s ease-out forwards,
+        mastery-bounce 0.6s ease-out 0.35s,
+        mastery-fade 0.5s ease-in 1.3s forwards;
+}
+
+/* Glow effect */
+.mastery-popup::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 20px;
+    background: radial-gradient(circle, rgba(255, 212, 59, 0.5), transparent 70%);
+    z-index: -1;
+    animation: glow-pulse 1s ease-in-out infinite alternate;
+}
+
+/* Small sparkle effect */
+.mastery-popup::after {
+    content: "✨ ✨ ✨";
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.2rem;
+    animation: sparkle-float 1.2s ease-out;
+}
+
+/* Sub text */
+.mastery-subtext {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+/* =========================
+   ANIMATIONS
+========================= */
+
+@keyframes mastery-pop {
+    0% {
+        transform: translateX(-50%) scale(0.6);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(-50%) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes mastery-bounce {
+    0% {
+        transform: translateX(-50%) scale(1);
+    }
+
+    40% {
+        transform: translateX(-50%) scale(1.08);
+    }
+
+    70% {
+        transform: translateX(-50%) scale(0.96);
+    }
+
+    100% {
+        transform: translateX(-50%) scale(1);
+    }
+}
+
+@keyframes mastery-fade {
+    to {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.95);
+    }
+}
+
+@keyframes glow-pulse {
+    from {
+        opacity: 0.4;
+    }
+
+    to {
+        opacity: 0.8;
+    }
+}
+
+@keyframes sparkle-float {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, 10px);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translate(-50%, -5px);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -20px);
+    }
+}

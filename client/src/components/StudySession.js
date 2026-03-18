@@ -3,6 +3,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/axiosConfig";
 import Flashcard from "./Flashcard";
 import { apiFetch } from "../utils/api";
+import "../styles/studysession.css";
+import confetti from "canvas-confetti";
+import { AuthContext } from "../auth/AuthProvider";
 
 export default function StudySession({
   session,
@@ -11,6 +14,9 @@ export default function StudySession({
   isLoading,
   error,
 }) {
+const [showMastery, setShowMastery] = React.useState(false);
+const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
+
   const [activeCards, setActiveCards] = React.useState([]);
   const [reserveCards, setReserveCards] = React.useState([]);
   const [currentCardIndex, setCurrentCardIndex] = React.useState(0);
@@ -26,6 +32,7 @@ export default function StudySession({
   const navigate = useNavigate();
   const location = useLocation();
 
+  const { registerBeforeLogout, clearBeforeLogout } = React.useContext(AuthContext);
   const pendingResultsRef = React.useRef([]);
   const isFlushingRef = React.useRef(false);
   const prevPathRef = React.useRef(location.pathname);
@@ -50,6 +57,23 @@ export default function StudySession({
     return arr;
   }
 
+  function celebrateMastery() {
+  confetti({
+    particleCount: 100,
+    spread: 80,
+    startVelocity: 40,
+    origin: { y: 0.6 },
+  });
+
+  setTimeout(() => {
+    confetti({
+      particleCount: 60,
+      spread: 100,
+      startVelocity: 30,
+      origin: { y: 0.55 },
+    });
+  }, 150);
+}
   React.useEffect(() => {
   if (!session) return;
 
@@ -140,11 +164,14 @@ export default function StudySession({
     }).catch((err) => {
       console.error("Failed to flush on leave:", err);
     });
-
-    pendingResultsRef.current = [];
-    setPendingResults([]);
   }
+  React.useEffect(() => {
+    registerBeforeLogout(flushPendingResults);
 
+    return () => {
+      clearBeforeLogout();
+    };
+  }, [registerBeforeLogout, clearBeforeLogout, childId, deckId]);
   function refillActiveCards(updatedActive, updatedReserve) {
     const nextActive = [...updatedActive];
     const nextReserve = [...updatedReserve];
@@ -352,7 +379,23 @@ export default function StudySession({
       pauseForInactivity();
       return;
     }
+const wasMasteredBefore =
+  answeredCard.status === "mastered" ||
+  answeredCard.is_active === false ||
+  Number(answeredCard.streak_correct ?? 0) >= 3;
 
+const justMastered = mastered && !wasMasteredBefore;
+
+if (justMastered) {
+  setMasteredCardPrompt(answeredCard);
+  setShowMastery(true);
+   celebrateMastery();
+
+  setTimeout(() => {
+    setShowMastery(false);
+    setMasteredCardPrompt(null);
+  }, 900);
+}
     resetInactivityTimer();
   }
 
@@ -458,63 +501,61 @@ export default function StudySession({
     );
   }
 
-  return (
-    <div style={{ position: "relative" }}>
-      {showInactivityPrompt && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              maxWidth: "400px",
-              width: "90%",
-              textAlign: "center",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-            }}
-          >
-            <h3>Are you still there?</h3>
-            <p>Your game is paused so your score does not get messed up.</p>
-            <p>Press continue to keep playing.</p>
-            <button onClick={handleResumeAfterPause}>Continue Game</button>
-          </div>
-        </div>
-      )}
 
-      <Flashcard
-        key={currentCard.id}
-        card={currentCard}
-        isSubmitting={isSubmitting}
-        canSaveProgress={pendingResults.length > 0}
-        timeLimitSeconds={8}
-        isPaused={isPaused}
-        onSubmitAnswer={({ typedAnswer, correct }) =>
-          handleCardResult({
-            factId: currentCard.id,
-            correct,
-            typedAnswer,
-          })
-        }
-        onTimedOut={() =>
-          handleCardResult({
-            factId: currentCard.id,
-            correct: false,
-            timedOut: true,
-            typedAnswer: "",
-          })
-        }
-        onSaveProgress={flushPendingResults}
-      />
-    </div>
-  );
+
+return (
+  <div className="study-session-container">
+    {showInactivityPrompt && (
+      <div className="inactivity-overlay">
+        <div className="inactivity-modal">
+          <h3>Are you still there?</h3>
+          <p>Your game is paused so your score does not get messed up.</p>
+          <p>Press continue to keep playing.</p>
+          <button
+            className="inactivity-button"
+            onClick={handleResumeAfterPause}
+          >
+            Continue Game
+          </button>
+        </div>
+      </div>
+    )}
+
+    {showMastery && (
+      <div className="mastery-popup">
+        🎉 Mastery!
+        {masteredCardPrompt?.question && (
+          <div className="mastery-subtext">
+            {masteredCardPrompt.question}
+          </div>
+        )}
+      </div>
+    )}
+
+    <Flashcard
+      key={currentCard.id}
+      card={currentCard}
+      isSubmitting={isSubmitting}
+      canSaveProgress={pendingResults.length > 0}
+      timeLimitSeconds={8}
+      isPaused={isPaused}
+      onSubmitAnswer={({ typedAnswer, correct }) =>
+        handleCardResult({
+          factId: currentCard.id,
+          correct,
+          typedAnswer,
+        })
+      }
+      onTimedOut={() =>
+        handleCardResult({
+          factId: currentCard.id,
+          correct: false,
+          timedOut: true,
+          typedAnswer: "",
+        })
+      }
+      onSaveProgress={flushPendingResults}
+    />
+  </div>
+);
 }

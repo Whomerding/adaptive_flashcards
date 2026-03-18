@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useEffect, useMemo, useState, useContext, useRef } from "react";
 import * as authApi from "../api/authApi";
 
 export const AuthContext = createContext(null);
@@ -6,7 +6,7 @@ export const AuthContext = createContext(null);
 export default function AuthProvider({ children }) {
   const [parent, setParent] = useState(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-
+const beforeLogoutRef = useRef(null); 
 useEffect(() => {
   (async () => {
     try {
@@ -39,11 +39,26 @@ async function register(email, password, birth_date) {
   return data;
 }
 
+
+
+function registerBeforeLogout(fn) {
+    beforeLogoutRef.current = fn;
+  }
+
+  function clearBeforeLogout() {
+    beforeLogoutRef.current = null;
+  }
+
   async function logout() {
     try {
+      if (beforeLogoutRef.current) {
+        await beforeLogoutRef.current();
+      }
+
       await authApi.logout();
     } finally {
       setParent(null);
+      beforeLogoutRef.current = null;
     }
   }
 
@@ -58,8 +73,17 @@ const value = useMemo(
     register,
     logout,
     setParent,
+    registerBeforeLogout,
+    clearBeforeLogout,
   }),
-  [parent, isAuthed, isBootstrapping]
+  [parent,
+    isAuthed,
+    isBootstrapping,
+    login,
+    register,
+    logout,
+    registerBeforeLogout,
+    clearBeforeLogout,]
 );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
