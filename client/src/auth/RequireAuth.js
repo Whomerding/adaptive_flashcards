@@ -8,6 +8,5 @@ export default function RequireAuth() {
 
   if (isBootstrapping) return <div>Loading...</div>;
   if (!isAuthed) return <Navigate to="/" replace state={{ from: location }} />;
-console.log("isAuthed:", isAuthed);
   return <Outlet />;
 }

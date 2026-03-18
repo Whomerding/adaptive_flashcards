@@ -20,13 +20,22 @@ export async function login(email, password) {
 
 export async function register(email, password, birthday) {
   await initCsrf();
+  try {
   const res = await api.post("/auth/register", {
     email,
     password,
     birth_date: birthday   // 👈 change here
   });
   return res.data;
+} catch (err){
+    throw new Error(
+       err.response?.data?.message ||
+      err.response?.data?.error ||
+      "Registration failed"
+    );
+  }
 }
+
 
 export async function logout() {
   await initCsrf();

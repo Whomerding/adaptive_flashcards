@@ -18,9 +18,10 @@ export default function RegisterPage() {
     try {
       await register(email, password, birthday);
       navigate("/", { replace: true });
-    } catch (err) {
-      console.error(err);
-      setError("Registration failed. Please try again.");
+    } catch (e) {
+
+      setError(e.message|| e.userMessage );
+      
     }
   }
 

@@ -27,7 +27,7 @@ export default function LoginPage() {
     }
   }
 
-console.log("API URL:", process.env.REACT_APP_API_URL);
+
 
   return (
     <div className="container d-flex justify-content-center align-items-center vh-80 mt-5">
