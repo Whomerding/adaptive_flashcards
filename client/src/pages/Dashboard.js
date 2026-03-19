@@ -1,7 +1,7 @@
 import React from "react";
 import Child from "../components/Child";
 import AddChild from "../components/AddChild";
-import api from "../api/axiosConfig";
+import api, { initCsrf } from "../api/axiosConfig";
 import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
@@ -35,7 +35,7 @@ export default function Dashboard() {
         setError("Child name cannot be empty");
         return;
       }
-
+      await initCsrf();
       const res = await api.post("/api/children", { name: trimmedName, avatar });
       const newChild = res.data.child ?? res.data;
       setChildren((prev) => [...prev, newChild]);
