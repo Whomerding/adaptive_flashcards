@@ -15,53 +15,46 @@ export async function bootstrapAuth() {
 export async function login(email, password) {
   try {
     await initCsrf(); // ensure csrf cookie exists
-
     const res = await api.post("/auth/login", { email, password });
-
     return res.data; // { parent: {...} }
   } catch (err) {
     console.error("Login error:", err);
 
-    // Normalize error so UI can use it cleanly
     const message =
       err.response?.data?.message ||
       err.response?.data?.error ||
       err.message ||
       "Login failed";
 
-    // Throw a error object 
-    throw {
-      userMessage: message,
-      original: err,
-    };
+    const error = new Error(message);
+    error.userMessage = message;
+    error.original = err;
+    throw error;
   }
 }
 
 export async function register(email, password, birthday) {
   await initCsrf();
   try {
-  const res = await api.post("/auth/register", {
-    email,
-    password,
-    birth_date: birthday   // 👈 change here
-  });
-  return res.data;
-} catch (err){
+    const res = await api.post("/auth/register", {
+      email,
+      password,
+      birth_date: birthday,
+    });
+    return res.data;
+  } catch (err) {
     throw new Error(
-       err.response?.data?.message ||
-      err.response?.data?.error ||
-      "Registration failed"
+      err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Registration failed"
     );
   }
 }
 
-
 export async function logout() {
   try {
     await initCsrf();
-
     const res = await api.post("/auth/logout");
-
     return res.data; // { ok: true }
   } catch (err) {
     console.error("Logout error:", err);
@@ -72,10 +65,10 @@ export async function logout() {
       err.message ||
       "Logout failed";
 
-    throw {
-      userMessage: message,
-      original: err,
-    };
+    const error = new Error(message);
+    error.userMessage = message;
+    error.original = err;
+    throw error;
   }
 }
 
@@ -90,9 +83,9 @@ export async function me() {
 
     console.error("Me error:", err);
 
-    throw {
-      userMessage: "Failed to fetch user",
-      original: err,
-    };
+    const error = new Error("Failed to fetch user");
+    error.userMessage = "Failed to fetch user";
+    error.original = err;
+    throw error;
   }
 }
