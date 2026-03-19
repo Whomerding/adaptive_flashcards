@@ -17,7 +17,7 @@ function Child(props) {
     <h5 className="card-title text-center">{props.child.name}</h5>
     </div>
     <div className="container">
-      <div class="row row-cols-sm-2 rows-cold-med-4 g-3">
+      <div className="row row-cols-sm-2 rows-cold-med-4 g-3">
       
         <div className="operation col">
           <button className="deck-button" onClick={handleClick} disabled={props.loading} value={3}>

@@ -14,8 +14,8 @@ export default function StudySession({
   isLoading,
   error,
 }) {
-const [showMastery, setShowMastery] = React.useState(false);
-const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
+  const [showMastery, setShowMastery] = React.useState(false);
+  const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
 
   const [activeCards, setActiveCards] = React.useState([]);
   const [reserveCards, setReserveCards] = React.useState([]);
@@ -32,7 +32,9 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { registerBeforeLogout, clearBeforeLogout } = React.useContext(AuthContext);
+  const { registerBeforeLogout, clearBeforeLogout } =
+    React.useContext(AuthContext);
+
   const pendingResultsRef = React.useRef([]);
   const isFlushingRef = React.useRef(false);
   const prevPathRef = React.useRef(location.pathname);
@@ -44,7 +46,6 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
 
   const BATCH_SIZE = 20;
   const ACTIVE_TARGET = session?.sessionConfig?.activeTarget ?? 12;
-
   const INACTIVITY_LIMIT = 15 * 1000;
   const WARNING_GRACE_PERIOD = 10 * 1000;
 
@@ -58,53 +59,53 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
   }
 
   function celebrateMastery() {
-  confetti({
-    particleCount: 100,
-    spread: 80,
-    startVelocity: 40,
-    origin: { y: 0.6 },
-  });
-
-  setTimeout(() => {
     confetti({
-      particleCount: 60,
-      spread: 100,
-      startVelocity: 30,
-      origin: { y: 0.55 },
+      particleCount: 100,
+      spread: 80,
+      startVelocity: 40,
+      origin: { y: 0.6 },
     });
-  }, 150);
-}
-  React.useEffect(() => {
-  if (!session) return;
 
-  const mode = session.sessionConfig?.mode ?? "adaptive";
-  const orderedCards = Array.isArray(session.cards) ? session.cards : [];
-
-  if (mode === "review") {
-    setActiveCards(shuffle(orderedCards));
-    setReserveCards([]);
-  } else {
-    const initialActive = shuffle(orderedCards.slice(0, ACTIVE_TARGET));
-    const initialReserve = orderedCards.slice(ACTIVE_TARGET);
-
-    setActiveCards(initialActive);
-    setReserveCards(initialReserve);
+    setTimeout(() => {
+      confetti({
+        particleCount: 60,
+        spread: 100,
+        startVelocity: 30,
+        origin: { y: 0.55 },
+      });
+    }, 150);
   }
 
-  setCurrentCardIndex(0);
+  React.useEffect(() => {
+    if (!session) return;
 
-  setPendingResults([]);
-  pendingResultsRef.current = [];
+    const mode = session.sessionConfig?.mode ?? "adaptive";
+    const orderedCards = Array.isArray(session.cards) ? session.cards : [];
 
-  setSessionFinished(false);
-  setSubmitError("");
-  setCardStartedAt(Date.now());
-  setShowInactivityPrompt(false);
-  setIsPaused(false);
+    if (mode === "review") {
+      setActiveCards(shuffle(orderedCards));
+      setReserveCards([]);
+    } else {
+      const initialActive = shuffle(orderedCards.slice(0, ACTIVE_TARGET));
+      const initialReserve = orderedCards.slice(ACTIVE_TARGET);
 
-  sessionEndedRef.current = false;
-  consecutiveTimeoutsRef.current = 0;
-}, [session, ACTIVE_TARGET]);
+      setActiveCards(initialActive);
+      setReserveCards(initialReserve);
+    }
+
+    setCurrentCardIndex(0);
+    setPendingResults([]);
+    pendingResultsRef.current = [];
+
+    setSessionFinished(false);
+    setSubmitError("");
+    setCardStartedAt(Date.now());
+    setShowInactivityPrompt(false);
+    setIsPaused(false);
+
+    sessionEndedRef.current = false;
+    consecutiveTimeoutsRef.current = 0;
+  }, [session, ACTIVE_TARGET]);
 
   React.useEffect(() => {
     pendingResultsRef.current = pendingResults;
@@ -112,33 +113,48 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
 
   const currentCard = activeCards[currentCardIndex] ?? null;
 
-  async function flushBatch(resultsToSend) {
-    if (!resultsToSend.length) return;
-    if (isFlushingRef.current) return;
-
-    isFlushingRef.current = true;
-    setIsSubmitting(true);
-    setSubmitError("");
-
-    try {
-      const res = await api.post(
-        `/api/children/${childId}/decks/${deckId}/batch-progress`,
-        { results: resultsToSend }
-      );
-      console.log("batch save success:", res.data);
-    } catch (err) {
-      console.error("Failed to upload batch results:", err);
-      console.error("Server response:", err.response?.data);
-      console.error("Status:", err.response?.status);
-      setSubmitError("Failed to save progress.");
-      throw err;
-    } finally {
-      isFlushingRef.current = false;
-      setIsSubmitting(false);
+  const clearInactivityTimers = React.useCallback(() => {
+    if (inactivityWarningTimerRef.current) {
+      clearTimeout(inactivityWarningTimerRef.current);
+      inactivityWarningTimerRef.current = null;
     }
-  }
 
-  async function flushPendingResults() {
+    if (inactivityEndTimerRef.current) {
+      clearTimeout(inactivityEndTimerRef.current);
+      inactivityEndTimerRef.current = null;
+    }
+  }, []);
+
+  const flushBatch = React.useCallback(
+    async (resultsToSend) => {
+      if (!resultsToSend.length) return;
+      if (isFlushingRef.current) return;
+
+      isFlushingRef.current = true;
+      setIsSubmitting(true);
+      setSubmitError("");
+
+      try {
+        const res = await api.post(
+          `/api/children/${childId}/decks/${deckId}/batch-progress`,
+          { results: resultsToSend }
+        );
+        console.log("batch save success:", res.data);
+      } catch (err) {
+        console.error("Failed to upload batch results:", err);
+        console.error("Server response:", err.response?.data);
+        console.error("Status:", err.response?.status);
+        setSubmitError("Failed to save progress.");
+        throw err;
+      } finally {
+        isFlushingRef.current = false;
+        setIsSubmitting(false);
+      }
+    },
+    [childId, deckId]
+  );
+
+  const flushPendingResults = React.useCallback(async () => {
     const resultsToSend = [...pendingResultsRef.current];
     if (!resultsToSend.length) return;
 
@@ -146,13 +162,11 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
 
     pendingResultsRef.current = [];
     setPendingResults([]);
-  }
+  }, [flushBatch]);
 
-  function flushPendingResultsOnLeave() {
+  const flushPendingResultsOnLeave = React.useCallback(() => {
     const resultsToSend = [...pendingResultsRef.current];
     if (!resultsToSend.length) return;
-
-  
 
     apiFetch(`/api/children/${childId}/decks/${deckId}/batch-progress`, {
       method: "POST",
@@ -161,14 +175,16 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
     }).catch((err) => {
       console.error("Failed to flush on leave:", err);
     });
-  }
+  }, [childId, deckId]);
+
   React.useEffect(() => {
     registerBeforeLogout(flushPendingResults);
 
     return () => {
       clearBeforeLogout();
     };
-  }, [registerBeforeLogout, clearBeforeLogout, childId, deckId]);
+  }, [registerBeforeLogout, clearBeforeLogout, flushPendingResults]);
+
   function refillActiveCards(updatedActive, updatedReserve) {
     const nextActive = [...updatedActive];
     const nextReserve = [...updatedReserve];
@@ -192,19 +208,7 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
     setPendingResults([]);
   }
 
-  function clearInactivityTimers() {
-    if (inactivityWarningTimerRef.current) {
-      clearTimeout(inactivityWarningTimerRef.current);
-      inactivityWarningTimerRef.current = null;
-    }
-
-    if (inactivityEndTimerRef.current) {
-      clearTimeout(inactivityEndTimerRef.current);
-      inactivityEndTimerRef.current = null;
-    }
-  }
-
-  function endSessionDueToInactivity() {
+  const endSessionDueToInactivity = React.useCallback(() => {
     if (sessionEndedRef.current) return;
     sessionEndedRef.current = true;
 
@@ -217,9 +221,9 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
 
     alert("Game ended due to inactivity.");
     navigate("/dashboard");
-  }
+  }, [clearInactivityTimers, flushPendingResultsOnLeave, navigate]);
 
-  function pauseForInactivity() {
+  const pauseForInactivity = React.useCallback(() => {
     if (sessionEndedRef.current || sessionFinished) return;
 
     clearInactivityTimers();
@@ -229,9 +233,14 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
     inactivityEndTimerRef.current = setTimeout(() => {
       endSessionDueToInactivity();
     }, WARNING_GRACE_PERIOD);
-  }
+  }, [
+    sessionFinished,
+    clearInactivityTimers,
+    endSessionDueToInactivity,
+    WARNING_GRACE_PERIOD,
+  ]);
 
-  function resetInactivityTimer() {
+  const resetInactivityTimer = React.useCallback(() => {
     if (sessionEndedRef.current || sessionFinished || isPaused) return;
 
     clearInactivityTimers();
@@ -239,7 +248,13 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
     inactivityWarningTimerRef.current = setTimeout(() => {
       pauseForInactivity();
     }, INACTIVITY_LIMIT);
-  }
+  }, [
+    sessionFinished,
+    isPaused,
+    clearInactivityTimers,
+    pauseForInactivity,
+    INACTIVITY_LIMIT,
+  ]);
 
   function handleResumeAfterPause() {
     if (sessionEndedRef.current) return;
@@ -318,34 +333,34 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
     };
 
     if (mode === "review") {
-  nextActive.splice(currentCardIndex, 1);
-  nextActive.push(updatedAnsweredCard);
+      nextActive.splice(currentCardIndex, 1);
+      nextActive.push(updatedAnsweredCard);
 
-  if (currentCardIndex >= nextActive.length) {
-    nextIndex = 0;
-  } else {
-    nextIndex = currentCardIndex;
-  }
-} else if (mastered) {
-  nextActive = nextActive.filter((card) => card.id !== factId);
+      if (currentCardIndex >= nextActive.length) {
+        nextIndex = 0;
+      } else {
+        nextIndex = currentCardIndex;
+      }
+    } else if (mastered) {
+      nextActive = nextActive.filter((card) => card.id !== factId);
 
-  const refill = refillActiveCards(nextActive, nextReserve);
-  nextActive = refill.active;
-  nextReserve = refill.reserve;
+      const refill = refillActiveCards(nextActive, nextReserve);
+      nextActive = refill.active;
+      nextReserve = refill.reserve;
 
-  if (nextIndex >= nextActive.length) {
-    nextIndex = 0;
-  }
-} else {
-  nextActive.splice(currentCardIndex, 1);
-  nextActive.push(updatedAnsweredCard);
+      if (nextIndex >= nextActive.length) {
+        nextIndex = 0;
+      }
+    } else {
+      nextActive.splice(currentCardIndex, 1);
+      nextActive.push(updatedAnsweredCard);
 
-  if (currentCardIndex >= nextActive.length) {
-    nextIndex = 0;
-  } else {
-    nextIndex = currentCardIndex;
-  }
-}
+      if (currentCardIndex >= nextActive.length) {
+        nextIndex = 0;
+      } else {
+        nextIndex = currentCardIndex;
+      }
+    }
 
     const noCardsLeft = nextActive.length === 0;
 
@@ -376,23 +391,25 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
       pauseForInactivity();
       return;
     }
-const wasMasteredBefore =
-  answeredCard.status === "mastered" ||
-  answeredCard.is_active === false ||
-  Number(answeredCard.streak_correct ?? 0) >= 3;
 
-const justMastered = mastered && !wasMasteredBefore;
+    const wasMasteredBefore =
+      answeredCard.status === "mastered" ||
+      answeredCard.is_active === false ||
+      Number(answeredCard.streak_correct ?? 0) >= 3;
 
-if (justMastered) {
-  setMasteredCardPrompt(answeredCard);
-  setShowMastery(true);
-   celebrateMastery();
+    const justMastered = mastered && !wasMasteredBefore;
 
-  setTimeout(() => {
-    setShowMastery(false);
-    setMasteredCardPrompt(null);
-  }, 900);
-}
+    if (justMastered) {
+      setMasteredCardPrompt(answeredCard);
+      setShowMastery(true);
+      celebrateMastery();
+
+      setTimeout(() => {
+        setShowMastery(false);
+        setMasteredCardPrompt(null);
+      }, 900);
+    }
+
     resetInactivityTimer();
   }
 
@@ -419,7 +436,12 @@ if (justMastered) {
       });
       clearInactivityTimers();
     };
-  }, [showInactivityPrompt, sessionFinished, isPaused]);
+  }, [
+    showInactivityPrompt,
+    sessionFinished,
+    resetInactivityTimer,
+    clearInactivityTimers,
+  ]);
 
   React.useEffect(() => {
     function handlePageHide() {
@@ -446,7 +468,7 @@ if (justMastered) {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [childId, deckId, sessionFinished]);
+  }, [flushPendingResultsOnLeave, pauseForInactivity]);
 
   React.useEffect(() => {
     if (prevPathRef.current !== location.pathname) {
@@ -454,14 +476,14 @@ if (justMastered) {
     }
 
     prevPathRef.current = location.pathname;
-  }, [location.pathname, childId, deckId]);
+  }, [location.pathname, flushPendingResultsOnLeave]);
 
   React.useEffect(() => {
     return () => {
       clearInactivityTimers();
       flushPendingResultsOnLeave();
     };
-  }, [childId, deckId]);
+  }, [clearInactivityTimers, flushPendingResultsOnLeave]);
 
   React.useEffect(() => {
     if (!pendingResults.length) return;
@@ -473,7 +495,7 @@ if (justMastered) {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [pendingResults]);
+  }, [pendingResults, flushPendingResults]);
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;
@@ -498,61 +520,57 @@ if (justMastered) {
     );
   }
 
-
-
-return (
-  <div className="study-session-container">
-    {showInactivityPrompt && (
-      <div className="inactivity-overlay">
-        <div className="inactivity-modal">
-          <h3>Are you still there?</h3>
-          <p>Your game is paused so your score does not get messed up.</p>
-          <p>Press continue to keep playing.</p>
-          <button
-            className="inactivity-button"
-            onClick={handleResumeAfterPause}
-          >
-            Continue Game
-          </button>
-        </div>
-      </div>
-    )}
-
-    {showMastery && (
-      <div className="mastery-popup">
-        🎉 Mastery!
-        {masteredCardPrompt?.question && (
-          <div className="mastery-subtext">
-            {masteredCardPrompt.question}
+  return (
+    <div className="study-session-container">
+      {showInactivityPrompt && (
+        <div className="inactivity-overlay">
+          <div className="inactivity-modal">
+            <h3>Are you still there?</h3>
+            <p>Your game is paused so your score does not get messed up.</p>
+            <p>Press continue to keep playing.</p>
+            <button
+              className="inactivity-button"
+              onClick={handleResumeAfterPause}
+            >
+              Continue Game
+            </button>
           </div>
-        )}
-      </div>
-    )}
+        </div>
+      )}
 
-    <Flashcard
-      key={currentCard.id}
-      card={currentCard}
-      isSubmitting={isSubmitting}
-      canSaveProgress={pendingResults.length > 0}
-      timeLimitSeconds={8}
-      isPaused={isPaused}
-      onSubmitAnswer={({ typedAnswer, correct }) =>
-        handleCardResult({
-          factId: currentCard.id,
-          correct,
-          typedAnswer,
-        })
-      }
-      onTimedOut={() =>
-        handleCardResult({
-          factId: currentCard.id,
-          correct: false,
-          timedOut: true,
-          typedAnswer: "",
-        })
-      }
-      onSaveProgress={flushPendingResults}
-    />
-  </div>
-);
+      {showMastery && (
+        <div className="mastery-popup">
+          🎉 Mastery!
+          {masteredCardPrompt?.question && (
+            <div className="mastery-subtext">{masteredCardPrompt.question}</div>
+          )}
+        </div>
+      )}
+
+      <Flashcard
+        key={currentCard.id}
+        card={currentCard}
+        isSubmitting={isSubmitting}
+        canSaveProgress={pendingResults.length > 0}
+        timeLimitSeconds={8}
+        isPaused={isPaused}
+        onSubmitAnswer={({ typedAnswer, correct }) =>
+          handleCardResult({
+            factId: currentCard.id,
+            correct,
+            typedAnswer,
+          })
+        }
+        onTimedOut={() =>
+          handleCardResult({
+            factId: currentCard.id,
+            correct: false,
+            timedOut: true,
+            typedAnswer: "",
+          })
+        }
+        onSaveProgress={flushPendingResults}
+      />
+    </div>
+  );
 }

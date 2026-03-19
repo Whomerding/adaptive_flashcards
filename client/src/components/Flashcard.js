@@ -146,7 +146,7 @@ export default function Flashcard({
     return () => {
       clearAllTimers();
     };
-  }, [card?.id, timeLimitSeconds, clearAllTimers]);
+  }, [card, timeLimitSeconds, clearAllTimers]);
 
   React.useEffect(() => {
     if (!card) return;
@@ -175,7 +175,7 @@ export default function Flashcard({
     return () => {
       clearCountdown();
     };
-  }, [card?.id, isPaused, isLocked, clearCountdown]);
+  }, [card, isPaused, isLocked, clearCountdown]);
 
   React.useEffect(() => {
     if (isPaused) return;
@@ -198,7 +198,7 @@ export default function Flashcard({
 
     inputRef.current.focus();
     inputRef.current.select?.();
-  }, [card?.id, isSubmitting, isLocked, isPaused]);
+  }, [card, isSubmitting, isLocked, isPaused]);
 
   function handleSubmit(e) {
     e.preventDefault();

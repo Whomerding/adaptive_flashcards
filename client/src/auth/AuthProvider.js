@@ -1,4 +1,11 @@
-import React, { createContext, useEffect, useMemo, useState, useContext, useRef } from "react";
+import React, {
+  createContext,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import * as authApi from "../api/authApi";
 
 export const AuthContext = createContext(null);
@@ -6,55 +13,53 @@ export const AuthContext = createContext(null);
 export default function AuthProvider({ children }) {
   const [parent, setParent] = useState(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-const beforeLogoutRef = useRef(null); 
-useEffect(() => {
-  (async () => {
+  const beforeLogoutRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await authApi.bootstrapAuth();
+        setParent(data?.parent ?? null);
+      } catch {
+        setParent(null);
+      } finally {
+        setIsBootstrapping(false);
+      }
+    })();
+  }, []);
+
+  const login = useCallback(async (email, password) => {
+    await authApi.login(email, password);
+
     try {
       const data = await authApi.bootstrapAuth();
       setParent(data?.parent ?? null);
-    } catch {
+      return data;
+    } catch (err) {
+      console.warn("Bootstrap failed, but login likely succeeded", err);
       setParent(null);
-    } finally {
-      setIsBootstrapping(false);
+      return null;
     }
-  })();
-}, []);
+  }, []);
 
+  const register = useCallback(async (email, password, birth_date) => {
+    await authApi.register(email, password, birth_date);
 
-async function login(email, password) {
-  await authApi.login(email, password);
-
-  try {
     const data = await authApi.bootstrapAuth();
     setParent(data?.parent ?? null);
+
     return data;
-  } catch (err) {
-    console.warn("Bootstrap failed, but login likely succeeded", err);
-    setParent(null);
-    return null;
-  }
-}
+  }, []);
 
-async function register(email, password, birth_date) {
-  await authApi.register(email, password, birth_date);
-
-  const data = await authApi.bootstrapAuth();
-  setParent(data?.parent ?? null);
-
-  return data;
-}
-
-
-
-function registerBeforeLogout(fn) {
+  const registerBeforeLogout = useCallback((fn) => {
     beforeLogoutRef.current = fn;
-  }
+  }, []);
 
-  function clearBeforeLogout() {
+  const clearBeforeLogout = useCallback(() => {
     beforeLogoutRef.current = null;
-  }
+  }, []);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     try {
       if (beforeLogoutRef.current) {
         await beforeLogoutRef.current();
@@ -65,31 +70,33 @@ function registerBeforeLogout(fn) {
       setParent(null);
       beforeLogoutRef.current = null;
     }
-  }
+  }, []);
 
-const isAuthed = !!parent;
+  const isAuthed = !!parent;
 
-const value = useMemo(
-  () => ({
-    parent,
-    isAuthed,
-    isBootstrapping,
-    login,
-    register,
-    logout,
-    setParent,
-    registerBeforeLogout,
-    clearBeforeLogout,
-  }),
-  [parent,
-    isAuthed,
-    isBootstrapping,
-    login,
-    register,
-    logout,
-    registerBeforeLogout,
-    clearBeforeLogout,]
-);
+  const value = useMemo(
+    () => ({
+      parent,
+      isAuthed,
+      isBootstrapping,
+      login,
+      register,
+      logout,
+      setParent,
+      registerBeforeLogout,
+      clearBeforeLogout,
+    }),
+    [
+      parent,
+      isAuthed,
+      isBootstrapping,
+      login,
+      register,
+      logout,
+      registerBeforeLogout,
+      clearBeforeLogout,
+    ]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
