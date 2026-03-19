@@ -1,46 +1,35 @@
 import axios from "axios";
 
-// const API_BASE = import.meta?.env?.VITE_API_BASE_URL || "http://localhost:5050";
-
-
-
-function getCookie(name) {
-  return document.cookie
-    .split("; ")
-    .find((row) => row.startsWith(`${name}=`))
-    ?.split("=")[1];
-}
+let csrfToken = null;
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "http://localhost:5050",
-  withCredentials: true, // send cookies cross-origin
+  withCredentials: true,
 });
 
-// --- CSRF: attach token header automatically for mutating requests ---
+// attach csrf header automatically for mutating requests
 api.interceptors.request.use((config) => {
   const method = (config.method || "get").toLowerCase();
   const isMutating = ["post", "put", "patch", "delete"].includes(method);
 
-  if (isMutating) {
-    const csrf = getCookie("csrf_token");
-    if (csrf) config.headers["X-CSRF-Token"] = csrf;
+  if (isMutating && csrfToken) {
+    config.headers["X-CSRF-Token"] = csrfToken;
   }
 
   return config;
 });
 
-// --- Refresh token handling (single-flight refresh + retry once) ---
 let refreshPromise = null;
 
 async function refreshAccessToken() {
-  // Only one refresh call at a time
   if (!refreshPromise) {
-    refreshPromise = api
-      .post("/auth/refresh")
-      .finally(() => (refreshPromise = null));
+    refreshPromise = api.post("/auth/refresh").finally(() => {
+      refreshPromise = null;
+    });
   }
   return refreshPromise;
 }
+
 const isAuthEndpoint = (url = "") =>
   url.includes("/auth/login") ||
   url.includes("/auth/register") ||
@@ -78,13 +67,13 @@ api.interceptors.response.use(
     return Promise.reject(err);
   }
 );
+
 export async function initCsrf() {
   try {
-    await api.get("/auth/csrf");
+    const res = await api.get("/auth/csrf");
+    csrfToken = res.data.csrfToken;
   } catch (err) {
     console.error("CSRF init failed:", err);
-
-    // Let it bubble up — login/register should decide what to do
     throw err;
   }
 }

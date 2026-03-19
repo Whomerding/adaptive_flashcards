@@ -15,12 +15,11 @@ export function getCsrf(req, res) {
   const isProd = process.env.NODE_ENV === "production";
   const csrf = crypto.randomBytes(32).toString("hex");
 
-  // For double-submit CSRF, cookie should be readable by JS (no httpOnly)
   res.cookie("csrf_token", csrf, {
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
     path: "/",
-      maxAge: 2 * 60 * 60 * 1000, // 2 hours
+    maxAge: 2 * 60 * 60 * 1000,
   });
 
   res.json({ csrfToken: csrf });
