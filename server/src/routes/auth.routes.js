@@ -80,8 +80,7 @@ router.get(
       ...cookieOptions(),
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
-    console.log("OAuth parent:", parent);
-console.log("OAuth birth_date:", parent.birth_date);
+
     if (!parent.birth_date) {
       return res.redirect(`${process.env.CLIENT_URL}/complete-profile`);
     }

@@ -12,7 +12,7 @@ function getCookie(name) {
 }
 
 const api = axios.create({
-  baseURL: "http://localhost:5050",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5050",
   withCredentials: true, // send cookies cross-origin
 });
 
@@ -79,8 +79,14 @@ api.interceptors.response.use(
   }
 );
 export async function initCsrf() {
-  // Ensures csrf cookie exists before any POSTs (login/register/refresh/etc)
-  await api.get("/auth/csrf");
+  try {
+    await api.get("/auth/csrf");
+  } catch (err) {
+    console.error("CSRF init failed:", err);
+
+    // Let it bubble up — login/register should decide what to do
+    throw err;
+  }
 }
 
 export default api;

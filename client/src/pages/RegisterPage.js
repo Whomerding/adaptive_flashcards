@@ -69,7 +69,7 @@ export default function RegisterPage() {
       </form>
    <button
   className="google-btn"
-  onClick={() => window.location.href = "http://localhost:5050/auth/google"}
+  onClick={() => window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`}
 >
   <img
     src="/logos/google_logo.svg"

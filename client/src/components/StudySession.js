@@ -152,10 +152,7 @@ const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
     const resultsToSend = [...pendingResultsRef.current];
     if (!resultsToSend.length) return;
 
-    console.log(
-      `Attempting to flush pending results on leave for child ${childId} deck ${deckId}...`
-    );
-    console.log("Flushing pending results on leave:", resultsToSend);
+  
 
     apiFetch(`/api/children/${childId}/decks/${deckId}/batch-progress`, {
       method: "POST",

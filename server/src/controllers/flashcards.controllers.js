@@ -254,17 +254,7 @@ export async function getChildDeckSession(req, res, next) {
           ? allFacts
           : [...selectedReviews, ...learningCards, ...newCards];
 
-      console.log("SESSION RESPONSE DEBUG", {
-        deckId,
-        childId,
-        allFactsCount: allFacts.length,
-        activeFactsCount: activeFacts.length,
-        reviewCount: selectedReviews.length,
-        learningCount: learningCards.length,
-        newCount: newCards.length,
-        returnedCardsCount: cards.length,
-        mode,
-      });
+     
 
       return res.json({
         deck: deckState.rows[0],
@@ -344,7 +334,7 @@ export async function ensureChildDeck(req, res, next) {
 }
 
 export async function batchUpdateChildFactProgress(req, res, next) {
-  console.log("batch route hit on navigation", req.body);
+  
   const parentId = req.user.parentId;
   const childId = Number(req.params.childId);
   const deckId = Number(req.params.deckId);

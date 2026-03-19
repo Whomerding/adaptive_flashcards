@@ -15,7 +15,7 @@ export default function CompleteProfile() {
     async function loadMe() {
       try {
         const data = await apiFetch("/auth/me");
-console.log("Profile data:", data);
+
         if (ignore) return;
 
         if (data?.birth_date) {

@@ -20,14 +20,19 @@ useEffect(() => {
   })();
 }, []);
 
+
 async function login(email, password) {
   await authApi.login(email, password);
 
-  // immediately re-check who we are using cookies
-  const data = await authApi.bootstrapAuth();
-  setParent(data?.parent ?? null);
-
-  return data;
+  try {
+    const data = await authApi.bootstrapAuth();
+    setParent(data?.parent ?? null);
+    return data;
+  } catch (err) {
+    console.warn("Bootstrap failed, but login likely succeeded", err);
+    setParent(null);
+    return null;
+  }
 }
 
 async function register(email, password, birth_date) {
