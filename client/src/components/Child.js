@@ -21,22 +21,22 @@ function Child(props) {
       
         <div className="operation col">
           <button className="deck-button" onClick={handleClick} disabled={props.loading} value={3}>
-            {props.loading ? "Loading..." : <img src="../img/Addition.webp" className= "operation-img" alt="Addition"></img>}
+            {props.loading ? "Loading..." : <img src="../img/Addition.png" className= "operation-img" alt="Addition"></img>}
           </button>
         </div>
         <div className="operation col">
           <button className="deck-button" onClick={handleClick} disabled={props.loading} value={4}>
-            {props.loading ? "Loading..." : <img src="../img/Subtraction.webp" className= "operation-img" alt="Subtraction"></img>}
+            {props.loading ? "Loading..." : <img src="../img/Subtraction.png" className= "operation-img" alt="Subtraction"></img>}
           </button>
         </div>
                 <div className="operation col">
           <button className="deck-button" onClick={handleClick} disabled={props.loading} value={1}>
-            {props.loading ? "Loading..." : <img src="../img/Multiplication.webp" className= "operation-img" alt="Multiplication"></img>}
+            {props.loading ? "Loading..." : <img src="../img/Multiplication.png" className= "operation-img" alt="Multiplication"></img>}
           </button>
         </div>
         <div className="operation col">
           <button className="deck-button" onClick={handleClick} disabled={props.loading} value={2}>
-            {props.loading ? "Loading..." : <img src="../img/Division.webp" className= "operation-img" alt="Division"></img>}
+            {props.loading ? "Loading..." : <img src="../img/Division.png" className= "operation-img" alt="Division"></img>}
           </button>
         </div>
       </div>
