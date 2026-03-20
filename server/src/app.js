@@ -8,14 +8,14 @@ import dotenv from "dotenv";
 
 dotenv.config();
 const app = express();
-
-app.use(express.json());
-app.use(cookieParser());
-app.use(passport.initialize());
 app.use(cors({
   origin: process.env.CLIENT_URL,
   credentials: true,
 }));
+app.use(express.json());
+app.use(cookieParser());
+app.use(passport.initialize());
+
 
 // Health check
 app.get("/health", (req, res) => res.json({ ok: true }));

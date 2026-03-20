@@ -15,12 +15,13 @@ export function getCsrf(req, res) {
   const isProd = process.env.NODE_ENV === "production";
   const csrf = crypto.randomBytes(32).toString("hex");
 
-  res.cookie("csrf_token", csrf, {
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    path: "/",
-    maxAge: 2 * 60 * 60 * 1000,
-  });
+res.cookie("csrf_token", csrf, {
+  httpOnly: false, // IMPORTANT
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
+  path: "/",
+  maxAge: 2 * 60 * 60 * 1000,
+});
 
   res.json({ csrfToken: csrf });
 }
