@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 import passport from "passport";
 import { cookieOptions } from "../utils/cookies.js";
@@ -24,24 +23,24 @@ import {
 } from "../controllers/auth.controllers.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireCsrf } from "../middleware/csrf.js";
-
+import { requireTrustedOrigin } from "../middleware/requireTrustedOrigin.js";
 
 const router = Router();
 
-router.post("/register", requireCsrf, signupLimiter, register);
-router.post("/login", requireCsrf, loginLimiter, login);
-router.post("/logout", requireCsrf, logout);
-router.post("/refresh", requireCsrf, refresh);
 router.get("/csrf", getCsrf);
-router.post("/forgot-password", passwordResetRequestLimiter, requestPasswordReset);
-router.post("/reset-password", passwordResetConfirmLimiter, resetPassword);
-router.patch("/me/birth_date", requireAuth, updateBirthDate);
-// Example: an auth-only endpoint to verify cookie/jwt
+
+router.post("/register", requireTrustedOrigin, signupLimiter, register);
+router.post("/login", requireTrustedOrigin, loginLimiter, login);
+router.post("/logout", requireTrustedOrigin, logout);
+router.post("/refresh", requireTrustedOrigin, refresh);
+router.post("/forgot-password", requireTrustedOrigin, passwordResetRequestLimiter, requestPasswordReset);
+router.post("/reset-password", requireTrustedOrigin, passwordResetConfirmLimiter, resetPassword);
+
+router.patch("/me/birth_date", requireAuth, requireTrustedOrigin, updateBirthDate);
+
 router.get("/me", requireAuth, me);
 
-
 // Google OAuth routes
-
 router.get(
   "/google",
   passport.authenticate("google", {
@@ -87,4 +86,5 @@ router.get(
     return res.redirect(`${process.env.CLIENT_URL}/dashboard`);
   }
 );
+
 export default router;
