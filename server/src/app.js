@@ -6,8 +6,12 @@ import authRoutes from "./routes/auth.routes.js";
 import flashcardRoutes from "./routes/flashcards.routes.js";
 import dotenv from "dotenv";
 
+
+
 dotenv.config();
 const app = express();
+const cors = require("cors");
+
 app.use(cors({
   origin: process.env.CLIENT_URL,
   credentials: true,
