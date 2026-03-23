@@ -17,8 +17,8 @@ export function getCsrf(req, res) {
 
 res.cookie("csrf_token", csrf, {
   httpOnly: false, // IMPORTANT
-  secure: isProd,
-  sameSite: isProd ? "none" : "lax",
+  secure: true,
+  sameSite: "none",
   path: "/",
   maxAge: 2 * 60 * 60 * 1000,
 });
