@@ -5,7 +5,7 @@ import useAuth from "./useAuth";
 export default function RequireGuest() {
   const { isAuthed, isBootstrapping } = useAuth();
 
-  if (isBootstrapping) return <div>Loading...</div>;
+  if (isBootstrapping) return <div>Server Loading...</div>;
   if (isAuthed) return <Navigate to="/dashboard" replace />;
 
   return <Outlet />;

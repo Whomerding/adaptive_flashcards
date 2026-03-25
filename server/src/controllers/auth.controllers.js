@@ -43,6 +43,8 @@ export async function me(req, res, next) {
 
 // POST /auth/register
 export async function register(req, res, next) {
+
+
   const isProd = process.env.NODE_ENV === "production";
 
   try {
@@ -50,26 +52,43 @@ export async function register(req, res, next) {
     const password = req.body.password || "";
     const birth_date = req.body.birth_date || null;
 
+
+
     if (!email) return res.status(400).json({ error: "Email is required" });
 
-    if (password.length < 8) {
-      return res
-        .status(400)
-        .json({ error: "Password must be at least 8 characters" });
-    }
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+if (!passwordRegex.test(password)) {
+  return res.status(400).json({
+    error:
+      "Password must be at least 8 characters and include one uppercase letter, one lowercase letter, and one number",
+  });
+}
 
     if (!birth_date) {
       return res.status(400).json({ error: "Birth date is required" });
     }
+  const now = new Date(); 
+  const parsedBirthDate = new Date(birth_date);
+  const minDate = new Date();
+  minDate.setFullYear(now.getFullYear() - 100);
 
-    const parsedBirthDate = new Date(birth_date);
-    if (isNaN(parsedBirthDate.getTime())) {
-      return res.status(400).json({ error: "Invalid birth date" });
-    }
 
-    if (parsedBirthDate > new Date()) {
-      return res.status(400).json({ error: "Birth date cannot be in the future" });
-    }
+
+if (isNaN(parsedBirthDate.getTime())) {
+  return res.status(400).json({ error: "Invalid birth date" });
+}
+
+if (parsedBirthDate > now) {
+  return res.status(400).json({ error: "Birth date cannot be in the future" });
+}
+
+if (parsedBirthDate < minDate) {
+  return res.status(400).json({
+    error: "Birth date is too far in the past",
+   
+  });
+}
 
     const existing = await pool.query(
       "SELECT id FROM parents WHERE email=$1",
