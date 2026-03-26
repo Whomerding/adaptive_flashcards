@@ -78,7 +78,7 @@ export default function Dashboard() {
   ) : (
     <div>
       <div className="container py-4">
-        <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-5">
+        <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-5 justify-content-center">
           {children.map((child) => (
             <Child
               key={child.id}
