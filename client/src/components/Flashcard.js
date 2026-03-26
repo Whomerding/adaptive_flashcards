@@ -1,6 +1,11 @@
 import React from "react";
 import FlashcardAnswerInput from "./FlashcardAnswerInput";
+import FlashcardKeypadInput from "./FlashcardKeypadInput";
+import { useTouchDevice } from "../hooks/useTouchDevice";
+
 import "../styles/flashcard.css";
+
+
 
 function answersMatch(typed, expected) {
   const typedNum = Number(String(typed).trim());
@@ -52,7 +57,7 @@ export default function Flashcard({
   const [isLocked, setIsLocked] = React.useState(false);
   const [timeLeft, setTimeLeft] = React.useState(timeLimitSeconds);
   const [showBack, setShowBack] = React.useState(false);
-
+const isTouchDevice = useTouchDevice();
   const inputRef = React.useRef(null);
   const intervalRef = React.useRef(null);
   const advanceTimeoutRef = React.useRef(null);
@@ -262,13 +267,25 @@ function handleSubmit() {
                 <h2 className="flashcard-prompt">{card?.prompt}</h2>
               )}
 
-<FlashcardAnswerInput
-  value={userAnswer}
-  onChange={setUserAnswer}
-  onSubmit={handleSubmit}
-  disabled={isSubmitting || isLocked || isPaused}
-  focusKey={card?.id}
-/>
+{!showBack && (
+  <div className="flashcard-input-wrap">
+    {isTouchDevice ? (
+      <FlashcardKeypadInput
+        value={userAnswer}
+        onChange={setUserAnswer}
+        onSubmit={handleSubmit}
+        disabled={isSubmitting || isLocked || isPaused}
+      />
+    ) : (
+      <FlashcardAnswerInput
+        value={userAnswer}
+        onChange={setUserAnswer}
+        onSubmit={handleSubmit}
+        disabled={isSubmitting || isLocked || isPaused}
+      />
+    )}
+  </div>
+)}
             </div>
 
             <div className="flashcard-face flashcard-back">
