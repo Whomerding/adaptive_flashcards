@@ -1,4 +1,5 @@
 import React from "react";
+import FlashcardAnswerInput from "./FlashcardAnswerInput";
 import "../styles/flashcard.css";
 
 function answersMatch(typed, expected) {
@@ -200,24 +201,22 @@ export default function Flashcard({
     inputRef.current.select?.();
   }, [card, isSubmitting, isLocked, isPaused]);
 
-  function handleSubmit(e) {
-    e.preventDefault();
+function handleSubmit() {
+  if (!card) return;
+  if (isSubmitting || isLockedRef.current) return;
+  if (isPaused) return;
 
-    if (!card) return;
-    if (isSubmitting || isLockedRef.current) return;
-    if (isPaused) return;
+  const typed = userAnswer.trim();
+  if (!typed) return;
 
-    const typed = userAnswer.trim();
-    if (!typed) return;
+  const correct = answersMatch(typed, card.answer);
 
-    const correct = answersMatch(typed, card.answer);
-
-    finalizeCard({
-      typedAnswer: typed,
-      correct,
-      timedOut: false,
-    });
-  }
+  finalizeCard({
+    typedAnswer: typed,
+    correct,
+    timedOut: false,
+  });
+}
 
   const feedbackClass =
     feedback?.color === "green"
@@ -263,28 +262,13 @@ export default function Flashcard({
                 <h2 className="flashcard-prompt">{card?.prompt}</h2>
               )}
 
-              <form onSubmit={handleSubmit} className="flashcard-form">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoComplete="off"
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  disabled={isSubmitting || isLocked || isPaused}
-                  placeholder="Type your answer"
-                  className="flashcard-input"
-                />
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting || isLocked || isPaused}
-                  className="flashcard-submit"
-                >
-                  Submit
-                </button>
-              </form>
+<FlashcardAnswerInput
+  value={userAnswer}
+  onChange={setUserAnswer}
+  onSubmit={handleSubmit}
+  disabled={isSubmitting || isLocked || isPaused}
+  focusKey={card?.id}
+/>
             </div>
 
             <div className="flashcard-face flashcard-back">

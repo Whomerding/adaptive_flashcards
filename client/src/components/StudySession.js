@@ -548,7 +548,7 @@ export default function StudySession({
       )}
 
       <Flashcard
-        key={currentCard.id}
+
         card={currentCard}
         isSubmitting={isSubmitting}
         canSaveProgress={pendingResults.length > 0}

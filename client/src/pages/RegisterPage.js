@@ -24,7 +24,7 @@ export default function RegisterPage() {
       
     }
   }
-console.log(`birthday: ${birthday}`);
+
  return (
   <div className="container d-flex justify-content-center align-items-center vh-80 mt-5">
     <div className="card shadow p-4" style={{ width: "350px" }}>
