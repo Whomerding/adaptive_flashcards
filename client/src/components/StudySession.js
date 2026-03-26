@@ -552,7 +552,7 @@ export default function StudySession({
         card={currentCard}
         isSubmitting={isSubmitting}
         canSaveProgress={pendingResults.length > 0}
-        timeLimitSeconds={8}
+        timeLimitSeconds={3000}
         isPaused={isPaused}
         onSubmitAnswer={({ typedAnswer, correct }) =>
           handleCardResult({

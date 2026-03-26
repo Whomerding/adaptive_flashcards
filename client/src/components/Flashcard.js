@@ -49,7 +49,7 @@ export default function Flashcard({
   onTimedOut,
   onSaveProgress,
   canSaveProgress,
-  timeLimitSeconds = 8,
+  timeLimitSeconds = 3000,
   isPaused = false,
 }) {
   const [userAnswer, setUserAnswer] = React.useState("");
@@ -58,6 +58,9 @@ export default function Flashcard({
   const [timeLeft, setTimeLeft] = React.useState(timeLimitSeconds);
   const [showBack, setShowBack] = React.useState(false);
 const isTouchDevice = useTouchDevice();
+
+console.log("isTouchDevice:", isTouchDevice);
+
   const inputRef = React.useRef(null);
   const intervalRef = React.useRef(null);
   const advanceTimeoutRef = React.useRef(null);
@@ -232,93 +235,93 @@ function handleSubmit() {
 
   const parsedPrompt = parseMathPrompt(card?.prompt);
 
-  return (
-    <div className="flashcard-wrapper flashcard-page">
-      <div className="flashcard-shell-wrap">
-        <div className={`flashcard-shell ${feedbackClass}`}>
-          <div className="flashcard-timer-wrap">
-            <div
-              className={`flashcard-timer ${
-                timeLeft <= 3 ? "flashcard-timer--urgent" : ""
-              }`}
-            >
-              ⏱ {Math.max(0, timeLeft)}
-            </div>
-          </div>
-
-          <div className={`flashcard-flip ${showBack ? "is-flipped" : ""}`}>
-            <div className="flashcard-face flashcard-front">
-              {parsedPrompt ? (
-                <div className="math-problem" aria-label={card?.prompt}>
-                  <div className="math-row math-top-row">
-                    <span className="math-number">{parsedPrompt.top}</span>
-                  </div>
-
-                  <div className="math-row math-bottom-row">
-                    <span className="math-operator">
-                      {parsedPrompt.operator}
-                    </span>
-                    <span className="math-number">{parsedPrompt.bottom}</span>
-                  </div>
-
-                  <div className="math-line" />
-                </div>
-              ) : (
-                <h2 className="flashcard-prompt">{card?.prompt}</h2>
-              )}
-
-{!showBack && (
-  <div className="flashcard-input-wrap">
-    {isTouchDevice ? (
-      <FlashcardKeypadInput
-        value={userAnswer}
-        onChange={setUserAnswer}
-        onSubmit={handleSubmit}
-        disabled={isSubmitting || isLocked || isPaused}
-      />
-    ) : (
-      <FlashcardAnswerInput
-        value={userAnswer}
-        onChange={setUserAnswer}
-        onSubmit={handleSubmit}
-        disabled={isSubmitting || isLocked || isPaused}
-      />
-    )}
-  </div>
-)}
-            </div>
-
-            <div className="flashcard-face flashcard-back">
-              {feedback && (
-                <>
-                  <div
-                    className={`flashcard-feedback ${
-                      feedback.color === "green"
-                        ? "flashcard-feedback--correct"
-                        : "flashcard-feedback--incorrect"
-                    }`}
-                  >
-                    {feedback.message}
-                  </div>
-
-                  <div className="flashcard-answer-label">Answer</div>
-                  <div className="flashcard-answer-value">{card?.answer}</div>
-                </>
-              )}
-            </div>
+ return (
+  <div className="flashcard-wrapper flashcard-page">
+    <div className="flashcard-shell-wrap">
+      <div className={`flashcard-shell ${feedbackClass}`}>
+        <div className="flashcard-timer-wrap">
+          <div
+            className={`flashcard-timer ${
+              timeLeft <= 3 ? "flashcard-timer--urgent" : ""
+            }`}
+          >
+            ⏱ {Math.max(0, timeLeft)}
           </div>
         </div>
-      </div>
 
-      <div className="flashcard-actions">
-        <button
-          onClick={onSaveProgress}
-          disabled={!canSaveProgress || isSubmitting}
-          className="flashcard-save"
-        >
-          Save Progress Now
-        </button>
+        <div className={`flashcard-flip ${showBack ? "is-flipped" : ""}`}>
+          <div className="flashcard-face flashcard-front">
+            {parsedPrompt ? (
+              <div className="math-problem" aria-label={card?.prompt}>
+                <div className="math-row math-top-row">
+                  <span className="math-number">{parsedPrompt.top}</span>
+                </div>
+
+                <div className="math-row math-bottom-row">
+                  <span className="math-operator">
+                    {parsedPrompt.operator}
+                  </span>
+                  <span className="math-number">{parsedPrompt.bottom}</span>
+                </div>
+
+                <div className="math-line" />
+              </div>
+            ) : (
+              <h2 className="flashcard-prompt">{card?.prompt}</h2>
+            )}
+          </div>
+
+          <div className="flashcard-face flashcard-back">
+            {feedback && (
+              <>
+                <div
+                  className={`flashcard-feedback ${
+                    feedback.color === "green"
+                      ? "flashcard-feedback--correct"
+                      : "flashcard-feedback--incorrect"
+                  }`}
+                >
+                  {feedback.message}
+                </div>
+
+                <div className="flashcard-answer-label">Answer</div>
+                <div className="flashcard-answer-value">{card?.answer}</div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {!showBack && (
+          <div className="flashcard-input-wrap">
+            {isTouchDevice ? (
+              <FlashcardKeypadInput
+                value={userAnswer}
+                onChange={setUserAnswer}
+                onSubmit={handleSubmit}
+                disabled={isSubmitting || isLocked || isPaused}
+              />
+            ) : (
+              <FlashcardAnswerInput
+                value={userAnswer}
+                onChange={setUserAnswer}
+                onSubmit={handleSubmit}
+                disabled={isSubmitting || isLocked || isPaused}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
-  );
+
+    <div className="flashcard-actions">
+      <button
+        onClick={onSaveProgress}
+        disabled={!canSaveProgress || isSubmitting}
+        className="flashcard-save"
+      >
+        Save Progress Now
+      </button>
+    </div>
+  </div>
+);
 }
