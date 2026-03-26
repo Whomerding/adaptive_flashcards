@@ -1,4 +1,5 @@
 import React from "react";
+import "../styles/flashcard-keypad-input.css";
 
 export default function FlashcardKeypadInput({
   value,
