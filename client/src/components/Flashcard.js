@@ -234,9 +234,27 @@ function handleSubmit() {
       : "";
 
   const parsedPrompt = parseMathPrompt(card?.prompt);
-
+const debugMode = true;
  return (
+
   <div className="flashcard-wrapper flashcard-page">
+      {debugMode && (
+  <div
+    style={{
+      position: "fixed",
+      top: 10,
+      left: 10,
+      zIndex: 9999,
+      background: "black",
+      color: "white",
+      padding: "8px 10px",
+      borderRadius: "8px",
+      fontSize: "14px",
+    }}
+  >
+    {isTouchDevice ? "Rendering keypad" : "Rendering native input"}
+  </div>
+)}
     <div className="flashcard-shell-wrap">
       <div className={`flashcard-shell ${feedbackClass}`}>
         <div className="flashcard-timer-wrap">
@@ -314,13 +332,13 @@ function handleSubmit() {
     </div>
 
     <div className="flashcard-actions">
-      <button
+      {/* <button
         onClick={onSaveProgress}
         disabled={!canSaveProgress || isSubmitting}
         className="flashcard-save"
       >
         Save Progress Now
-      </button>
+      </button> */}
     </div>
   </div>
 );
