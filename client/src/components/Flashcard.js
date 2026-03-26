@@ -295,7 +295,7 @@ function handleSubmit() {
 
         {!showBack && (
           <div className="flashcard-input-wrap">
-            {isTouchDevice ? (
+             {isTouchDevice ? (
               <FlashcardKeypadInput
                 value={userAnswer}
                 onChange={setUserAnswer}
@@ -309,7 +309,8 @@ function handleSubmit() {
                 onSubmit={handleSubmit}
                 disabled={isSubmitting || isLocked || isPaused}
               />
-            )}
+            )} 
+
           </div>
         )}
       </div>

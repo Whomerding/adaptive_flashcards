@@ -17,10 +17,7 @@ export default function FlashcardKeypadInput({
     onChange(value.slice(0, -1));
   }
 
-  function clearValue() {
-    if (disabled) return;
-    onChange("");
-  }
+
 
   return (
     <div className="flashcard-keypad-wrap">
@@ -50,14 +47,6 @@ export default function FlashcardKeypadInput({
           ⌫
         </button>
 
-        <button
-          type="button"
-          onClick={clearValue}
-          disabled={disabled}
-          className="keypad-btn"
-        >
-          Clear
-        </button>
 
         <button
           type="button"

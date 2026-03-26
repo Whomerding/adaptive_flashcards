@@ -9,7 +9,7 @@
 }
 
 .flashcard-answer-display {
-    width: 100%;
+    width: 70%;
     min-height: 68px;
     padding: 0.9rem 1rem;
     border-radius: 18px;
@@ -18,10 +18,10 @@
     color: #1f2937;
     font-size: 1.8rem;
     font-weight: 800;
-    text-align: right;
+    text-align: center;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
     box-shadow:
         inset 0 2px 6px rgba(99, 102, 241, 0.08),
         0 8px 18px rgba(31, 41, 55, 0.08);
@@ -29,12 +29,13 @@
 }
 
 .flashcard-answer-display:empty::before {
+
     content: "Answer";
     color: #9ca3af;
 }
 
 .flashcard-keypad {
-    width: 100%;
+    width: 70%;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 0.7rem;
@@ -50,10 +51,10 @@
 .keypad-btn {
     appearance: none;
     border: none;
+    height: 41px;
     border-radius: 16px;
-    min-height: 58px;
     padding: 0.8rem;
-    font-size: 1.35rem;
+    font-size: 1rem;
     font-weight: 800;
     color: #1f2937;
     background: linear-gradient(180deg, #ffffff, #e9eefc);
@@ -95,8 +96,8 @@
 
 .keypad-submit {
     grid-column: 1 / -1;
-    min-height: 60px;
-    font-size: 1.05rem;
+    min-height: 45px;
+    font-size: 1.00rem;
     color: #ffffff;
     background: linear-gradient(135deg, #2563eb, #7c3aed);
     box-shadow:
@@ -130,8 +131,8 @@
     }
 
     .keypad-btn {
-        min-height: 54px;
-        font-size: 1.2rem;
+        min-height: 3rem;
+        font-size: 1rem;
         border-radius: 14px;
     }
 
