@@ -76,6 +76,21 @@ export default function StudySession({
     }, 150);
   }
 
+function getTimeLimitSeconds(card) {
+  if (!card) return 20;
+
+  const timesSeen = Number(card.times_seen ?? 0);
+  const streakCorrect = Number(card.streak_correct ?? 0);
+  const timesCorrect = Number(card.times_correct ?? 0);
+
+  if (card.status === "mastered" || streakCorrect >= 3) return 5;
+  if (streakCorrect === 2) return 8;
+  if (streakCorrect === 1) return 12;
+  if (timesSeen >= 3 && timesCorrect === 0) return 18;
+
+  return 20;
+}
+
   React.useEffect(() => {
     if (!session) return;
 
@@ -552,7 +567,7 @@ export default function StudySession({
         card={currentCard}
         isSubmitting={isSubmitting}
         canSaveProgress={pendingResults.length > 0}
-        timeLimitSeconds={20}
+       timeLimitSeconds={getTimeLimitSeconds(currentCard)}
         isPaused={isPaused}
         onSubmitAnswer={({ typedAnswer, correct }) =>
           handleCardResult({

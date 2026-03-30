@@ -42,6 +42,8 @@ function parseMathPrompt(prompt = "") {
   };
 }
 
+
+
 export default function Flashcard({
   card,
   isSubmitting,
@@ -49,7 +51,7 @@ export default function Flashcard({
   onTimedOut,
   onSaveProgress,
   canSaveProgress,
-  timeLimitSeconds = 3000,
+  timeLimitSeconds,
   isPaused = false,
 }) {
   const [userAnswer, setUserAnswer] = React.useState("");

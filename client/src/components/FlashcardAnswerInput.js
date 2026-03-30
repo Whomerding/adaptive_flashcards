@@ -8,10 +8,6 @@ export default function FlashcardAnswerInput({
   focusKey,
 }) {
   const inputRef = React.useRef(null);
-React.useEffect(() => {
-  console.log("input mounted");
-  return () => console.log("input unmounted");
-}, []);
 
   React.useEffect(() => {
     if (disabled) return;
