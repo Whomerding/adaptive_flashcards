@@ -4,13 +4,22 @@ import { AuthContext } from "../auth/AuthProvider";
 import "../styles/navbar.css";
 
 export default function Navbar() {
-  const navigate = useNavigate();
+
   const { logout, isAuthed } = React.useContext(AuthContext);
+  const [isOpen, setIsOpen] = React.useState(false);
+  const navigate = useNavigate();
 
   async function handleLogOut() {
   await logout();
+  setIsOpen(false);
   navigate("/");
 }
+
+
+  function handleNavClick() {
+    setIsOpen(false); 
+  }
+
   return (
      <nav className="navbar navbar-expand-md navbar-light border-bottom py-0">
     <div className="container">
@@ -26,59 +35,75 @@ export default function Navbar() {
         </div>
         </Link>
 
-      <button
-        className="navbar-toggler"
-        type="button"
-        data-bs-toggle="collapse"
-        data-bs-target="#navbarNav"
-      >
-        <span className="navbar-toggler-icon"></span>
-      </button>
-      <div className="collapse navbar-collapse" id="navbarNav">
-        <ul className="navbar-nav ms-auto align-items-md-center">
+        <button
+          className="navbar-toggler"
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <span className="navbar-toggler-icon"></span>
+        </button>
 
-          {isAuthed ? (
-            <li className="nav-item">
-              <Link to="/dashboard" className="nav-link">
-                Dashboard
-              </Link>
-            </li>
-          ) : (
-            <li className="nav-item">
-              <Link to="/" className="nav-link">
-                Home
-              </Link>
-            </li>
-          )}
+        {/* Collapsible Menu */}
+        <div className={`collapse navbar-collapse ${isOpen ? "show" : ""}`}>
+          <ul className="navbar-nav ms-auto align-items-md-center">
 
-          {isAuthed ? (
-            <li className="nav-item ms-md-2 mt-2 mt-md-0">
-              <button
-                type="button"
-                onClick={handleLogOut}
-                className="btn btn-outline-dark w-100"
-              >
-                Log Out
-              </button>
-            </li>
-          ) : (
-            <>
+            {isAuthed ? (
               <li className="nav-item">
-                <Link to="/login" className="nav-link">
-                  Login
+                <Link
+                  to="/dashboard"
+                  className="nav-link"
+                  onClick={handleNavClick}
+                >
+                  Dashboard
                 </Link>
               </li>
+            ) : (
               <li className="nav-item">
-                <Link to="/register" className="nav-link">
-                  Register
+                <Link
+                  to="/"
+                  className="nav-link"
+                  onClick={handleNavClick}
+                >
+                  Home
                 </Link>
               </li>
-            </>
-          )}
+            )}
 
-        </ul>
+            {isAuthed ? (
+              <li className="nav-item ms-md-2 mt-2 mt-md-0">
+                <button
+                  onClick={handleLogOut}
+                  className="btn btn-outline-dark w-100"
+                >
+                  Log Out
+                </button>
+              </li>
+            ) : (
+              <>
+                <li className="nav-item">
+                  <Link
+                    to="/login"
+                    className="nav-link"
+                    onClick={handleNavClick}
+                  >
+                    Login
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link
+                    to="/register"
+                    className="nav-link"
+                    onClick={handleNavClick}
+                  >
+                    Register
+                  </Link>
+                </li>
+              </>
+            )}
+
+          </ul>
+        </div>
       </div>
-    </div>
-  </nav>
-);
+    </nav>
+  );
 }
