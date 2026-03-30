@@ -51,7 +51,7 @@ const queuedAdvanceRef = React.useRef(null);
 
   const BATCH_SIZE = 20;
   const ACTIVE_TARGET = session?.sessionConfig?.activeTarget ?? 12;
-  const INACTIVITY_LIMIT = 25 * 1000;
+  const INACTIVITY_LIMIT = 60 * 1000;
   const WARNING_GRACE_PERIOD = 10 * 1000;
 
   function shuffle(array) {
