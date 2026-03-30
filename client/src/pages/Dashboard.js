@@ -12,6 +12,19 @@ export default function Dashboard() {
   const [children, setChildren] = React.useState([]);
 
 
+function unlockSpeech() {
+  if (!("speechSynthesis" in window)) return;
+
+  const utterance = new SpeechSynthesisUtterance("ready");
+  utterance.volume = 0.01;
+  utterance.rate = 1;
+  utterance.pitch = 1;
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
+
   async function fetchChildren() {
     try {
       const res = await api.get("/api/children", { withCredentials: true });
@@ -52,6 +65,7 @@ export default function Dashboard() {
     try {
       const numericDeckId = Number(deckId);
       setError(null);
+      unlockSpeech();
       navigate(`/children/${childId}/decks/${numericDeckId}`);
     } catch (err) {
       console.error("Failed to choose deck:", err);

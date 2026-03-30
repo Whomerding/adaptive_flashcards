@@ -36,27 +36,44 @@ function operatorToWord(operator) {
 }
 
 function speakText(text) {
-  if (!("speechSynthesis" in window)) return null;
+  if (!("speechSynthesis" in window)) return;
 
-  window.speechSynthesis.cancel();
+  const synth = window.speechSynthesis;
 
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 0.85;
-  utterance.pitch = 1;
-  utterance.volume = 1;
+  function speak() {
+    synth.cancel();
+    synth.resume();
 
-  const voices = window.speechSynthesis.getVoices();
-  const preferredVoice =
-    voices.find((voice) => voice.name.toLowerCase().includes("samantha")) ||
-    voices.find((voice) => voice.lang?.startsWith("en-US")) ||
-    voices[0];
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
 
-  if (preferredVoice) {
-    utterance.voice = preferredVoice;
+    const voices = synth.getVoices();
+
+    const preferredVoice =
+      voices.find((v) => v.name.toLowerCase().includes("samantha")) ||
+      voices.find((v) => v.lang?.startsWith("en-US")) ||
+      voices[0];
+
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+
+    synth.speak(utterance);
   }
 
-  window.speechSynthesis.speak(utterance);
-  return utterance;
+  const voices = synth.getVoices();
+
+  if (voices.length === 0) {
+    synth.onvoiceschanged = () => {
+      speak();
+      synth.onvoiceschanged = null;
+    };
+  } else {
+    speak();
+  }
 }
 
 export default function FactReviewPlayback({
@@ -260,6 +277,7 @@ export default function FactReviewPlayback({
           className="fact-review-board"
           aria-label={`${card.prompt} equals ${card.answer}`}
         >
+
           <div className="fact-review-row fact-review-top-row">
             <span
               className={`fact-review-token fact-review-number ${

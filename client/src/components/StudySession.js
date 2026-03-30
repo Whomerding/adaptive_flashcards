@@ -623,7 +623,6 @@ await applyAdvanceState(advanceState);
     repeatCount={3}
     stepDuration={900}
     cyclePause={700}
-    introMessage="Listen and watch the fact"
     onComplete={handleReviewComplete}
   />
 ) : (
