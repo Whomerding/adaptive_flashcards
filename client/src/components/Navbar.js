@@ -12,9 +12,9 @@ export default function Navbar() {
   navigate("/");
 }
   return (
+     <nav className="navbar navbar-expand-md navbar-light border-bottom py-0">
     <div className="container">
      
-      <header className="d-flex flex-wrap justify-content-center align-items-center pt-3 border-bottom">
         <Link
           to="/"
           className="d-flex align-items-center mb-md-0 me-md-auto text-decoration-none"
@@ -26,44 +26,59 @@ export default function Navbar() {
         </div>
         </Link>
 
-        <ul className="nav nav-pills align-items-center">
-          {isAuthed?(<li className="nav-item">
-            <Link to="/dashboard" className="nav-link">
-              Dashboard
-            </Link>
-          </li> ): (<li className="nav-item">
-            <Link to="/" className="nav-link">
-              Home
-            </Link>
-          </li>) }
-          
+      <button
+        className="navbar-toggler"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#navbarNav"
+      >
+        <span className="navbar-toggler-icon"></span>
+      </button>
+      <div className="collapse navbar-collapse" id="navbarNav">
+        <ul className="navbar-nav ms-auto align-items-md-center">
 
-          
-{isAuthed? (
-            <li className="nav-item ms-2">
+          {isAuthed ? (
+            <li className="nav-item">
+              <Link to="/dashboard" className="nav-link">
+                Dashboard
+              </Link>
+            </li>
+          ) : (
+            <li className="nav-item">
+              <Link to="/" className="nav-link">
+                Home
+              </Link>
+            </li>
+          )}
+
+          {isAuthed ? (
+            <li className="nav-item ms-md-2 mt-2 mt-md-0">
               <button
                 type="button"
                 onClick={handleLogOut}
-                className="btn btn-outline-dark"
+                className="btn btn-outline-dark w-100"
               >
                 Log Out
               </button>
             </li>
-            
-          ): ( <><li className="nav-item">
-            <Link to="/login" className="nav-link">
-              Login
-            </Link>
-          </li>
-          <li className="nav-item">
-            <Link to="/register" className="nav-link">
-              Register
-            </Link>
-          </li>
-          </>)
-          }
+          ) : (
+            <>
+              <li className="nav-item">
+                <Link to="/login" className="nav-link">
+                  Login
+                </Link>
+              </li>
+              <li className="nav-item">
+                <Link to="/register" className="nav-link">
+                  Register
+                </Link>
+              </li>
+            </>
+          )}
+
         </ul>
-      </header>
+      </div>
     </div>
-  );
+  </nav>
+);
 }
