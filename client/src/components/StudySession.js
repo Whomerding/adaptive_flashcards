@@ -6,6 +6,8 @@ import { apiFetch } from "../utils/api";
 import "../styles/studysession.css";
 import confetti from "canvas-confetti";
 import { AuthContext } from "../auth/AuthProvider";
+import FactReviewPlayback from "./factReviewPlayback";
+
 
 export default function StudySession({
   session,
@@ -29,6 +31,9 @@ export default function StudySession({
   const [showInactivityPrompt, setShowInactivityPrompt] = React.useState(false);
   const [isPaused, setIsPaused] = React.useState(false);
 
+  const [reviewCard, setReviewCard] = React.useState(null);
+const queuedAdvanceRef = React.useRef(null);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -46,7 +51,7 @@ export default function StudySession({
 
   const BATCH_SIZE = 20;
   const ACTIVE_TARGET = session?.sessionConfig?.activeTarget ?? 12;
-  const INACTIVITY_LIMIT = 15 * 1000;
+  const INACTIVITY_LIMIT = 25 * 1000;
   const WARNING_GRACE_PERIOD = 10 * 1000;
 
   function shuffle(array) {
@@ -90,38 +95,38 @@ function getTimeLimitSeconds(card) {
 
   return 20;
 }
+React.useEffect(() => {
+  if (!session) return;
 
-  React.useEffect(() => {
-    if (!session) return;
+  const mode = session.sessionConfig?.mode ?? "adaptive";
+  const orderedCards = Array.isArray(session.cards) ? session.cards : [];
 
-    const mode = session.sessionConfig?.mode ?? "adaptive";
-    const orderedCards = Array.isArray(session.cards) ? session.cards : [];
+  if (mode === "review") {
+    setActiveCards(shuffle(orderedCards));
+    setReserveCards([]);
+  } else {
+    const initialActive = shuffle(orderedCards.slice(0, ACTIVE_TARGET));
+    const initialReserve = orderedCards.slice(ACTIVE_TARGET);
 
-    if (mode === "review") {
-      setActiveCards(shuffle(orderedCards));
-      setReserveCards([]);
-    } else {
-      const initialActive = shuffle(orderedCards.slice(0, ACTIVE_TARGET));
-      const initialReserve = orderedCards.slice(ACTIVE_TARGET);
+    setActiveCards(initialActive);
+    setReserveCards(initialReserve);
+  }
 
-      setActiveCards(initialActive);
-      setReserveCards(initialReserve);
-    }
+  setCurrentCardIndex(0);
+  setPendingResults([]);
+  pendingResultsRef.current = [];
 
-    setCurrentCardIndex(0);
-    setPendingResults([]);
-    pendingResultsRef.current = [];
+  setSessionFinished(false);
+  setSubmitError("");
+  setCardStartedAt(Date.now());
+  setShowInactivityPrompt(false);
+  setIsPaused(false);
+  setReviewCard(null);
+  queuedAdvanceRef.current = null;
 
-    setSessionFinished(false);
-    setSubmitError("");
-    setCardStartedAt(Date.now());
-    setShowInactivityPrompt(false);
-    setIsPaused(false);
-
-    sessionEndedRef.current = false;
-    consecutiveTimeoutsRef.current = 0;
-  }, [session, ACTIVE_TARGET]);
-
+  sessionEndedRef.current = false;
+  consecutiveTimeoutsRef.current = 0;
+}, [session, ACTIVE_TARGET]);
   React.useEffect(() => {
     pendingResultsRef.current = pendingResults;
   }, [pendingResults]);
@@ -282,6 +287,77 @@ function getTimeLimitSeconds(card) {
     resetInactivityTimer();
   }
 
+async function applyAdvanceState(advanceState) {
+  if (!advanceState) return;
+
+  const {
+    nextActive,
+    nextReserve,
+    nextIndex,
+    noCardsLeft,
+    answeredCard,
+    mastered,
+  } = advanceState;
+
+  setActiveCards(nextActive);
+  setReserveCards(nextReserve);
+  setCurrentCardIndex(nextIndex);
+  setCardStartedAt(Date.now());
+
+  if (noCardsLeft) {
+    try {
+      await flushPendingResults();
+      clearInactivityTimers();
+      setSessionFinished(true);
+    } catch (err) {
+      // leave pending intact if save fails
+    }
+    return;
+  }
+
+  try {
+    await maybeFlushLargeBatch();
+  } catch (err) {
+    // leave pending intact if save fails
+  }
+
+  if (consecutiveTimeoutsRef.current >= 2) {
+    pauseForInactivity();
+    return;
+  }
+
+  const wasMasteredBefore =
+    answeredCard.status === "mastered" ||
+    answeredCard.is_active === false ||
+    Number(answeredCard.streak_correct ?? 0) >= 3;
+
+  const justMastered = mastered && !wasMasteredBefore;
+
+  if (justMastered) {
+    setMasteredCardPrompt(answeredCard);
+    setShowMastery(true);
+    celebrateMastery();
+
+    setTimeout(() => {
+      setShowMastery(false);
+      setMasteredCardPrompt(null);
+    }, 900);
+  }
+
+  resetInactivityTimer();
+}
+
+async function handleReviewComplete() {
+  const queuedAdvance = queuedAdvanceRef.current;
+  queuedAdvanceRef.current = null;
+
+  setReviewCard(null);
+
+  if (!queuedAdvance) return;
+
+  await applyAdvanceState(queuedAdvance);
+}
+
   async function handleCardResult({
     factId,
     correct,
@@ -378,54 +454,31 @@ function getTimeLimitSeconds(card) {
     }
 
     const noCardsLeft = nextActive.length === 0;
+setPendingResults(nextPending);
 
-    setActiveCards(nextActive);
-    setReserveCards(nextReserve);
-    setCurrentCardIndex(nextIndex);
-    setPendingResults(nextPending);
-    setCardStartedAt(Date.now());
+const advanceState = {
+  nextActive,
+  nextReserve,
+  nextIndex,
+  noCardsLeft,
+  answeredCard,
+  mastered,
+};
 
-    if (noCardsLeft) {
-      try {
-        await flushPendingResults();
-        clearInactivityTimers();
-        setSessionFinished(true);
-      } catch (err) {
-        // leave pending intact if save fails
-      }
-      return;
-    }
+const shouldShowReview = timedOut || !correct;
 
-    try {
-      await maybeFlushLargeBatch();
-    } catch (err) {
-      // leave pending intact if save fails
-    }
+if (shouldShowReview) {
+  queuedAdvanceRef.current = advanceState;
+  setReviewCard({
+    ...updatedAnsweredCard,
+    prompt: answeredCard.prompt,
+    answer: answeredCard.answer,
+  });
+  return;
+}
 
-    if (consecutiveTimeoutsRef.current >= 2) {
-      pauseForInactivity();
-      return;
-    }
-
-    const wasMasteredBefore =
-      answeredCard.status === "mastered" ||
-      answeredCard.is_active === false ||
-      Number(answeredCard.streak_correct ?? 0) >= 3;
-
-    const justMastered = mastered && !wasMasteredBefore;
-
-    if (justMastered) {
-      setMasteredCardPrompt(answeredCard);
-      setShowMastery(true);
-      celebrateMastery();
-
-      setTimeout(() => {
-        setShowMastery(false);
-        setMasteredCardPrompt(null);
-      }, 900);
-    }
-
-    resetInactivityTimer();
+await applyAdvanceState(advanceState);
+    
   }
 
   React.useEffect(() => {
@@ -537,6 +590,8 @@ function getTimeLimitSeconds(card) {
 
   return (
     <div className="study-session-container">
+
+
       {showInactivityPrompt && (
         <div className="inactivity-overlay">
           <div className="inactivity-modal">
@@ -562,30 +617,40 @@ function getTimeLimitSeconds(card) {
         </div>
       )}
 
-      <Flashcard
-
-        card={currentCard}
-        isSubmitting={isSubmitting}
-        canSaveProgress={pendingResults.length > 0}
-       timeLimitSeconds={getTimeLimitSeconds(currentCard)}
-        isPaused={isPaused}
-        onSubmitAnswer={({ typedAnswer, correct }) =>
-          handleCardResult({
-            factId: currentCard.id,
-            correct,
-            typedAnswer,
-          })
-        }
-        onTimedOut={() =>
-          handleCardResult({
-            factId: currentCard.id,
-            correct: false,
-            timedOut: true,
-            typedAnswer: "",
-          })
-        }
-        onSaveProgress={flushPendingResults}
-      />
+{reviewCard ? (
+  <FactReviewPlayback
+    card={reviewCard}
+    repeatCount={3}
+    stepDuration={900}
+    cyclePause={700}
+    introMessage="Listen and watch the fact"
+    onComplete={handleReviewComplete}
+  />
+) : (
+  <Flashcard
+    card={currentCard}
+    isSubmitting={isSubmitting}
+    canSaveProgress={pendingResults.length > 0}
+    timeLimitSeconds={getTimeLimitSeconds(currentCard)}
+    isPaused={isPaused}
+    onSubmitAnswer={({ typedAnswer, correct }) =>
+      handleCardResult({
+        factId: currentCard.id,
+        correct,
+        typedAnswer,
+      })
+    }
+    onTimedOut={() =>
+      handleCardResult({
+        factId: currentCard.id,
+        correct: false,
+        timedOut: true,
+        typedAnswer: "",
+      })
+    }
+    onSaveProgress={flushPendingResults}
+  />
+)}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import AddChild from "../components/AddChild";
 import api, { initCsrf } from "../api/axiosConfig";
 import { useNavigate } from "react-router-dom";
 
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [error, setError] = React.useState(null);
@@ -72,6 +73,7 @@ export default function Dashboard() {
       throw err;
     }
   }
+
 
   return loading ? (
     <div>Loading...</div>

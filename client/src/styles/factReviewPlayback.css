@@ -1,0 +1,212 @@
+.fact-review-page {
+    min-height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem;
+    box-sizing: border-box;
+}
+
+.fact-review-shell {
+    width: min(92vw, 700px);
+    min-height: 640px;
+    border-radius: 28px;
+    background: #ffffff;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.12);
+    padding: 2rem 2rem 2.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    box-sizing: border-box;
+}
+
+.fact-review-header {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.fact-review-title {
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.fact-review-subtitle {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    font-weight: 500;
+    color: #4b5563;
+}
+
+.fact-review-board {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.fact-review-row {
+    width: 100%;
+    display: flex;
+}
+
+.fact-review-top-row {
+    justify-content: flex-end;
+    margin-bottom: 0.25rem;
+}
+
+.fact-review-bottom-row {
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.4em;
+    margin-bottom: 0.6rem;
+}
+
+.fact-review-answer-row {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    padding-right: 0.1em;
+    margin-top: 0.7rem;
+}
+
+.fact-review-token {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.2em;
+    padding: 0.08em 0.2em;
+    border-radius: 18px;
+    font-weight: 800;
+    line-height: 1;
+    color: #111827;
+    transform: scale(1);
+    transition:
+        background-color 180ms ease,
+        color 180ms ease,
+        transform 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.fact-review-number,
+.fact-review-answer {
+    font-size: clamp(4.25rem, 10vw, 6.5rem);
+}
+
+.fact-review-operator {
+    font-size: clamp(3.5rem, 8vw, 5.25rem);
+}
+
+.fact-review-line {
+    width: 100%;
+    border-bottom: 8px solid #111827;
+    border-radius: 999px;
+    transition:
+        border-color 180ms ease,
+        transform 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.fact-review-token--active {
+    background: #fef08a;
+    color: #111827;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 8px rgba(254, 240, 138, 0.35);
+}
+
+.fact-review-line--active {
+    border-bottom-color: #f59e0b;
+    transform: scaleX(1.05);
+    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.25);
+}
+
+.fact-review-fallback {
+    width: 100%;
+    max-width: 520px;
+    min-height: 360px;
+    border-radius: 24px;
+    background: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 2rem;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.fact-review-fallback-prompt {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    color: #111827;
+}
+
+.fact-review-fallback-answer {
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+    font-weight: 800;
+    color: #059669;
+}
+
+@media (max-width: 640px) {
+    .fact-review-page {
+        padding: 1rem;
+    }
+
+    .fact-review-shell {
+        width: 100%;
+        min-height: 520px;
+        border-radius: 22px;
+        padding: 1.5rem 1rem 2rem;
+    }
+
+    .fact-review-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .fact-review-board {
+        width: min(100%, 320px);
+    }
+
+    .fact-review-top-row {
+        padding-right: 0.95em;
+    }
+
+    .fact-review-line {
+        border-bottom-width: 6px;
+    }
+}
+
+.fact-review-progress {
+    margin-top: 0.75rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #6b7280;
+}
+
+.fact-review-token {
+    position: relative;
+}
+
+.fact-review-token--active {
+    background: #fef08a;
+    color: #111827;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 8px rgba(254, 240, 138, 0.35);
+    z-index: 1;
+}
+
+.fact-review-fallback-prompt,
+.fact-review-fallback-answer {
+    transition:
+        background-color 180ms ease,
+        color 180ms ease,
+        transform 180ms ease,
+        box-shadow 180ms ease;
+    border-radius: 18px;
+    padding: 0.35em 0.5em;
+}
