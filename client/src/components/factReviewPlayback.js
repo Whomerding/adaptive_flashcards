@@ -64,7 +64,6 @@ export default function FactReviewPlayback({
   repeatCount = 3,
   stepDuration = 900,
   cyclePause = 700,
-  introMessage = "Let's review this fact",
   autoPlay = true,
   onComplete,
 }) {
@@ -178,7 +177,7 @@ export default function FactReviewPlayback({
     }
 
     timeoutRef.current = setTimeout(() => {
-      speakText(introMessage);
+
 
       timeoutRef.current = setTimeout(() => {
         if (unmountedRef.current) return;
@@ -197,7 +196,7 @@ export default function FactReviewPlayback({
     repeatCount,
     stepDuration,
     cyclePause,
-    introMessage,
+
     onComplete,
     clearPlaybackTimeout,
     cancelSpeech,
@@ -218,7 +217,7 @@ export default function FactReviewPlayback({
         <div className="fact-review-shell">
           <div className="fact-review-header">
             <div className="fact-review-title">Review</div>
-            <div className="fact-review-subtitle">{introMessage}</div>
+    
             <div className="fact-review-progress">
               Repeat {Math.min(currentRepeat + 1, repeatCount)} of {repeatCount}
             </div>
@@ -251,7 +250,7 @@ export default function FactReviewPlayback({
       <div className="fact-review-shell">
         <div className="fact-review-header">
           <div className="fact-review-title">Review</div>
-          <div className="fact-review-subtitle">{introMessage}</div>
+  
           <div className="fact-review-progress">
             Repeat {Math.min(currentRepeat + 1, repeatCount)} of {repeatCount}
           </div>
