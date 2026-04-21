@@ -278,7 +278,9 @@
     }
 
     .flashcard-flip {
-        min-height: 240px;
+        min-height: 128px;
+        max-width: 159px;
+        margin-left: 5rem;
     }
 
     .flashcard-prompt {

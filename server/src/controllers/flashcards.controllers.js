@@ -190,6 +190,7 @@ export async function getChildDeckSession(req, res, next) {
             COALESCE(cfp.times_seen, 0) AS times_seen,
             COALESCE(cfp.times_correct, 0) AS times_correct,
             COALESCE(cfp.streak_correct, 0) AS streak_correct,
+            COALESCE(cfp.reward_granted, false) AS reward_granted,
             cfp.last_seen_at,
             cfp.next_due_at
          FROM deck_facts df
@@ -254,7 +255,21 @@ export async function getChildDeckSession(req, res, next) {
           ? allFacts
           : [...selectedReviews, ...learningCards, ...newCards];
 
-     
+     const rewardCountResult = await client.query(
+  `SELECT COUNT(*)::int AS total_rewards
+   FROM child_fact_progress cfp
+   JOIN deck_facts df
+     ON df.fact_id = cfp.fact_id
+   WHERE cfp.child_id = $1
+     AND df.deck_id = $2
+     AND cfp.reward_granted = true`,
+  [childId, deckId]
+);
+
+const totalRewards = rewardCountResult.rows[0].total_rewards;
+const STAGE_SIZE = 5;
+const stage = Math.floor(totalRewards / STAGE_SIZE);
+const nextUnlockAt = (stage + 1) * STAGE_SIZE;
 
       return res.json({
         deck: deckState.rows[0],
@@ -263,6 +278,11 @@ export async function getChildDeckSession(req, res, next) {
           reviewTarget: REVIEW_TARGET,
           mode,
         },
+        rewardProgress: {
+  totalRewards,
+  stage,
+  nextUnlockAt,
+},
         cards,
       });
     } finally {
@@ -302,8 +322,8 @@ export async function ensureChildDeck(req, res, next) {
 
       await client.query(
         `INSERT INTO child_fact_progress
-         (child_id, fact_id, status, is_active, times_seen, times_correct, streak_correct)
-         SELECT $1, fact_id, 'new', true, 0, 0, 0
+         (child_id, fact_id, status, is_active, times_seen, times_correct, streak_correct, reward_granted )
+         SELECT $1, fact_id, 'new', true, 0, 0, 0, false
          FROM deck_facts
          WHERE deck_id = $2
          ON CONFLICT (child_id, fact_id) DO NOTHING`,
@@ -334,11 +354,12 @@ export async function ensureChildDeck(req, res, next) {
 }
 
 export async function batchUpdateChildFactProgress(req, res, next) {
-  
   const parentId = req.user.parentId;
   const childId = Number(req.params.childId);
   const deckId = Number(req.params.deckId);
   const results = req.body?.results;
+
+  const STAGE_SIZE = 5;
 
   if (!Number.isInteger(childId) || childId <= 0) {
     return res.status(400).json({ error: "Invalid childId" });
@@ -363,7 +384,10 @@ export async function batchUpdateChildFactProgress(req, res, next) {
       const factIds = results.map((r) => Number(r.factId));
 
       if (factIds.some((id) => !Number.isInteger(id) || id <= 0)) {
-        return res.status(400).json({ error: "One or more factIds are invalid" });
+        await client.query("ROLLBACK");
+        return res
+          .status(400)
+          .json({ error: "One or more factIds are invalid" });
       }
 
       const factsInDeckResult = await client.query(
@@ -374,7 +398,9 @@ export async function batchUpdateChildFactProgress(req, res, next) {
         [deckId, factIds]
       );
 
-      const validFactIds = new Set(factsInDeckResult.rows.map((row) => row.fact_id));
+      const validFactIds = new Set(
+        factsInDeckResult.rows.map((row) => row.fact_id)
+      );
       const invalidFactIds = factIds.filter((id) => !validFactIds.has(id));
 
       if (invalidFactIds.length > 0) {
@@ -396,7 +422,8 @@ export async function batchUpdateChildFactProgress(req, res, next) {
            times_correct,
            streak_correct,
            last_seen_at,
-           next_due_at
+           next_due_at,
+           reward_granted
          )
          SELECT
            $1,
@@ -407,10 +434,22 @@ export async function batchUpdateChildFactProgress(req, res, next) {
            0,
            0,
            NULL,
-           NULL
+           NULL,
+           false
          ON CONFLICT (child_id, fact_id) DO NOTHING`,
         [childId, factIds]
       );
+
+      const beforeRewardCountResult = await client.query(
+        `SELECT COUNT(*)::int AS total_rewards
+         FROM child_fact_progress
+         WHERE child_id = $1
+           AND reward_granted = true`,
+        [childId]
+      );
+
+      const rewardCountBefore = beforeRewardCountResult.rows[0].total_rewards;
+      const rewardEvents = [];
 
       for (const result of results) {
         const factId = Number(result.factId);
@@ -426,7 +465,9 @@ export async function batchUpdateChildFactProgress(req, res, next) {
           `SELECT
              COALESCE(times_seen, 0) AS times_seen,
              COALESCE(times_correct, 0) AS times_correct,
-             COALESCE(streak_correct, 0) AS streak_correct
+             COALESCE(streak_correct, 0) AS streak_correct,
+             COALESCE(status, 'new') AS status,
+             COALESCE(reward_granted, false) AS reward_granted
            FROM child_fact_progress
            WHERE child_id = $1
              AND fact_id = $2`,
@@ -439,32 +480,34 @@ export async function batchUpdateChildFactProgress(req, res, next) {
 
         const current = existingProgress.rows[0];
 
-const newTimesSeen = Number(current.times_seen) + 1;
-const newTimesCorrect = Number(current.times_correct) + (correct ? 1 : 0);
+        const newTimesSeen = Number(current.times_seen) + 1;
+        const newTimesCorrect =
+          Number(current.times_correct) + (correct ? 1 : 0);
 
-let newStreakCorrect;
-if (timedOut) {
-  newStreakCorrect = 0;
-} else if (correct) {
-  newStreakCorrect = Number(current.streak_correct) + 1;
-} else {
-  newStreakCorrect = 0;
-}
+        let newStreakCorrect;
+        if (timedOut) {
+          newStreakCorrect = 0;
+        } else if (correct) {
+          newStreakCorrect = Number(current.streak_correct) + 1;
+        } else {
+          newStreakCorrect = 0;
+        }
 
-// Master after 3 correct total, not 3 in a row
-// const isMastered = newTimesCorrect >= 3;
+        // Mastered if they have a streak of 3 correct
+        const isMastered = newStreakCorrect >= 3;
 
+        const newStatus = isMastered
+          ? "mastered"
+          : newTimesSeen > 0
+            ? "learning"
+            : "new";
 
-// Mastered if they have a streak of 3 correct, even if they got some wrong along the way
-const isMastered = newStreakCorrect >= 3;
+        const isActive = !isMastered;
 
-const newStatus = isMastered
-  ? "mastered"
-  : newTimesSeen > 0
-    ? "learning"
-    : "new";
-
-const isActive = !isMastered;
+        const wasRewardGranted = Boolean(current.reward_granted);
+        const becameMasteredNow =
+          current.status !== "mastered" && newStatus === "mastered";
+        const shouldGrantReward = becameMasteredNow && !wasRewardGranted;
 
         await client.query(
           `UPDATE child_fact_progress
@@ -474,7 +517,11 @@ const isActive = !isMastered;
              streak_correct = $5,
              last_seen_at = $6,
              status = $7,
-             is_active = $8
+             is_active = $8,
+             reward_granted = CASE
+               WHEN $9 = true THEN true
+               ELSE reward_granted
+             END
            WHERE child_id = $1
              AND fact_id = $2`,
           [
@@ -486,15 +533,46 @@ const isActive = !isMastered;
             seenAt.toISOString(),
             newStatus,
             isActive,
+            shouldGrantReward,
           ]
         );
+
+        if (shouldGrantReward) {
+          rewardEvents.push({
+            factId,
+            type: "fact_mastered",
+            awarded: true,
+          });
+        }
       }
+
+      const rewardCountResult = await client.query(
+        `SELECT COUNT(*)::int AS total_rewards
+         FROM child_fact_progress
+         WHERE child_id = $1
+           AND reward_granted = true`,
+        [childId]
+      );
+
+      const rewardCountAfter = rewardCountResult.rows[0].total_rewards;
+
+      const stageBefore = Math.floor(rewardCountBefore / STAGE_SIZE);
+      const stageAfter = Math.floor(rewardCountAfter / STAGE_SIZE);
+      const unlockedNewStage = stageAfter > stageBefore;
+      const nextUnlockAt = (stageAfter + 1) * STAGE_SIZE;
 
       await client.query("COMMIT");
 
       return res.json({
         success: true,
         processed: results.length,
+        rewardProgress: {
+          totalRewards: rewardCountAfter,
+          stage: stageAfter,
+          nextUnlockAt,
+          unlockedNewStage,
+        },
+        rewardEvents,
       });
     } catch (err) {
       await client.query("ROLLBACK");
