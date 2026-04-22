@@ -7,7 +7,7 @@ import "../styles/studysession.css";
 import confetti from "canvas-confetti";
 import { AuthContext } from "../auth/AuthProvider";
 import FactReviewPlayback from "./factReviewPlayback";
-import { getAdditionRewardState } from "../data/rewardHelpers";
+
 
 export default function StudySession({
   session,
@@ -646,8 +646,8 @@ await applyAdvanceState(advanceState);
     card={currentCard}
     isSubmitting={isSubmitting}
     canSaveProgress={pendingResults.length > 0}
-    // timeLimitSeconds={getTimeLimitSeconds(currentCard)}
-timeLimitSeconds={2000000}
+    timeLimitSeconds={getTimeLimitSeconds(currentCard)}
+
     isPaused={isPaused}
     onSubmitAnswer={({ typedAnswer, correct }) =>
       handleCardResult({
