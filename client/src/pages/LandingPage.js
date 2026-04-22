@@ -18,7 +18,7 @@ function LandingPage() {
               </div>
                <div className="col-lg-6">
                  <h1 className="display-5 fw-bold text-body-emphasis lh-1 mb-3">Build Lightning-Fast Math Fact Recall</h1> 
-                 <p className="lead">A 5-minute daily practice that helps kids master addition, subtraction, multiplication, and division.</p> 
+                 <p className="lead">A fast-paced daily practice that helps kids master addition, subtraction, multiplication, and division.</p> 
                  <div className="d-grid gap-2 d-md-flex justify-content-md-start"> 
                   {isAuthed? (
                     <button type="button" 

@@ -1,0 +1,42 @@
+export const rewardAssets = {
+  addition: [
+    [
+      "/addition/dragon1-1.jpg",
+      "/addition/dragon1-2.jpg",
+      "/addition/dragon1-3.jpg",
+      "/addition/dragon1-4.jpg",
+      "/addition/dragon1-5.jpg",
+    ],
+    [
+      "/addition/dragon2-1.jpg",
+      "/addition/dragon2-2.jpg",
+      "/addition/dragon2-3.jpg",
+      "/addition/dragon2-4.jpg",
+      "/addition/dragon2-5.jpg",
+      "/addition/dragon2-6.jpg",
+      "/addition/dragon2-7.jpg",
+    ],
+    [
+      "/addition/dragon3-1.jpg",
+      "/addition/dragon3-2.jpg",
+      "/addition/dragon3-3.jpg",
+      "/addition/dragon3-4.jpg",
+      "/addition/dragon3-5.jpg",
+    ],
+    [
+      "/addition/dragon4-1.jpg",
+      "/addition/dragon4-2.jpg",
+      "/addition/dragon4-3.jpg",
+      "/addition/dragon4-4.jpg",
+      "/addition/dragon4-5.jpg",
+    ],
+    [
+      "/addition/dragon5-1.jpg",
+      "/addition/dragon5-2.jpg",
+      "/addition/dragon5-3.jpg",
+      "/addition/dragon5-4.jpg",
+      "/addition/dragon5-5.jpg",
+      "/addition/dragon5-6.jpg",
+    ],
+  ],
+};

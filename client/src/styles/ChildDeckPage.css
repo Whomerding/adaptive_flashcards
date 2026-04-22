@@ -1,0 +1,91 @@
+.child-deck-page {
+    position: relative;
+}
+
+.reward-progress {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 1;
+}
+
+.reward-progress-frame {
+    width: 260px;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+    border: 3px solid rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.reward-progress-frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.reward-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 20, 50, 0.35);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.reward-popup {
+    position: relative;
+    background: linear-gradient(180deg, #ffffff, #f8f5ff);
+    padding: 24px 28px;
+    border-radius: 28px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    animation: popIn 0.35s ease;
+}
+
+.reward-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    color: #6a5acd;
+}
+
+.reward-popup img {
+    width: 300px;
+    max-width: 80vw;
+    border-radius: 20px;
+    display: block;
+}
+
+.reward-popup::before,
+.reward-popup::after {
+    content: "✦";
+    position: absolute;
+    font-size: 20px;
+    color: #ffd700;
+    opacity: 0.85;
+}
+
+.reward-popup::before {
+    top: 10px;
+    left: 14px;
+}
+
+.reward-popup::after {
+    bottom: 10px;
+    right: 14px;
+}
+
+@keyframes popIn {
+    0% {
+        transform: scale(0.82);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}

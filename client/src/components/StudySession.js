@@ -7,7 +7,7 @@ import "../styles/studysession.css";
 import confetti from "canvas-confetti";
 import { AuthContext } from "../auth/AuthProvider";
 import FactReviewPlayback from "./factReviewPlayback";
-
+import { getAdditionRewardState } from "../data/rewardHelpers";
 
 export default function StudySession({
   session,
@@ -15,6 +15,7 @@ export default function StudySession({
   deckId,
   isLoading,
   error,
+  onRewardEarned,
 }) {
   const [showMastery, setShowMastery] = React.useState(false);
   const [masteredCardPrompt, setMasteredCardPrompt] = React.useState(null);
@@ -95,8 +96,10 @@ function getTimeLimitSeconds(card) {
 
   return 20;
 }
+
+
 React.useEffect(() => {
-  if (!session) return;
+  if (!session?.cards) return;
 
   const mode = session.sessionConfig?.mode ?? "adaptive";
   const orderedCards = Array.isArray(session.cards) ? session.cards : [];
@@ -126,7 +129,8 @@ React.useEffect(() => {
 
   sessionEndedRef.current = false;
   consecutiveTimeoutsRef.current = 0;
-}, [session, ACTIVE_TARGET]);
+}, [session.cards, session.sessionConfig?.mode, ACTIVE_TARGET]);
+
   React.useEffect(() => {
     pendingResultsRef.current = pendingResults;
   }, [pendingResults]);
@@ -333,16 +337,28 @@ async function applyAdvanceState(advanceState) {
 
   const justMastered = mastered && !wasMasteredBefore;
 
-  if (justMastered) {
-    setMasteredCardPrompt(answeredCard);
-    setShowMastery(true);
-    celebrateMastery();
+ if (justMastered) {
+  setMasteredCardPrompt(answeredCard);
+  setShowMastery(true);
+  celebrateMastery();
 
-    setTimeout(() => {
-      setShowMastery(false);
-      setMasteredCardPrompt(null);
-    }, 900);
+  const shouldGrantReward = !answeredCard.reward_granted;
+
+  if (shouldGrantReward) {
+    const currentTotalRewards = session.rewardProgress?.totalRewards ?? 0;
+    const nextTotalRewards = currentTotalRewards + 1;
+
+    onRewardEarned?.({
+      factId: answeredCard.id,
+      totalRewards: nextTotalRewards,
+    });
   }
+
+  setTimeout(() => {
+    setShowMastery(false);
+    setMasteredCardPrompt(null);
+  }, 900);
+}
 
   resetInactivityTimer();
 }
@@ -630,7 +646,8 @@ await applyAdvanceState(advanceState);
     card={currentCard}
     isSubmitting={isSubmitting}
     canSaveProgress={pendingResults.length > 0}
-    timeLimitSeconds={getTimeLimitSeconds(currentCard)}
+    // timeLimitSeconds={getTimeLimitSeconds(currentCard)}
+timeLimitSeconds={2000000}
     isPaused={isPaused}
     onSubmitAnswer={({ typedAnswer, correct }) =>
       handleCardResult({
