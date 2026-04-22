@@ -4,13 +4,13 @@
 
 .reward-progress {
     position: absolute;
-    top: 24px;
-    left: 24px;
+    width: 100%;
     z-index: 1;
+    opacity: 75%
 }
 
 .reward-progress-frame {
-    width: 260px;
+
     border-radius: 24px;
     overflow: hidden;
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
@@ -87,5 +87,11 @@
     100% {
         transform: scale(1);
         opacity: 1;
+    }
+}
+
+@media (max-width: 734px) {
+    .reward-progress-frame img {
+        width: 225%;
     }
 }
